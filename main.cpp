@@ -38,22 +38,21 @@ struct body
 
 	vec2 position;
 	vec2 prev_position;
-	vec2 acceleration;
 };
 
 typedef std::shared_ptr<body> body_ptr;
 
 struct spring
 {
-	spring(body_ptr b0, body_ptr b1)
-	: b0(b0)
-	, b1(b1)
-	, rest_length((b0->position - b1->position).length())
+	spring(vec2& p0, vec2& p1)
+	: p0(p0)
+	, p1(p1)
+	, rest_length((p0 - p1).length())
 	{ }
 
 	void draw() const;
 
-	body_ptr b0, b1;
+	vec2 &p0, &p1;
 	float rest_length;
 };
 
@@ -68,10 +67,10 @@ struct rgb
 
 struct triangle
 {
-	triangle(body_ptr b0, body_ptr b1, body_ptr b2, const rgb& color)
-	: b0(b0)
-	, b1(b1)
-	, b2(b2)
+	triangle(vec2& p0, vec2& p1, vec2& p2, const rgb& color)
+	: p0(p0)
+	, p1(p1)
+	, p2(p2)
 	, color(color)
 	{ }
 
@@ -81,12 +80,12 @@ struct triangle
 
 	void shift(const vec2& offset)
 	{
-		b0->position += offset;
-		b1->position += offset;
-		b2->position += offset;
+		p0 += offset;
+		p1 += offset;
+		p2 += offset;
 	}
 
-	body_ptr b0, b1, b2;
+	vec2 &p0, &p1, &p2;
 	rgb color;
 	vec2 center;
 	float radius;
@@ -226,7 +225,7 @@ world::spawn_piece(float x_origin, float y_origin, int type)
 		if (spring_set.find(std::make_pair(b1, b0)) != spring_set.end())
 			return;
 
-		springs_.push_back(spring(bodies_[b0], bodies_[b1]));
+		springs_.push_back(spring(bodies_[b0]->position, bodies_[b1]->position));
 		spring_set.insert(std::make_pair(b0, b1));
 	};
 
@@ -252,8 +251,8 @@ world::spawn_piece(float x_origin, float y_origin, int type)
 
 				// triangles
 
-				triangles_.push_back(triangle(bodies_[b0], bodies_[b1], bodies_[b2], pieces[type].color));
-				triangles_.push_back(triangle(bodies_[b2], bodies_[b3], bodies_[b0], pieces[type].color));
+				triangles_.push_back(triangle(bodies_[b0]->position, bodies_[b1]->position, bodies_[b2]->position, pieces[type].color));
+				triangles_.push_back(triangle(bodies_[b2]->position, bodies_[b3]->position, bodies_[b0]->position, pieces[type].color));
 			}
 		}
 	}
@@ -301,14 +300,14 @@ world::update()
 		i->position += speed + vec2(0, -GRAVITY);
 	}
 
-	static const int NUM_ITERATIONS = 16;
+	static const int NUM_ITERATIONS = 30;
 
 	for (int i = 0; i < NUM_ITERATIONS; i++) {
 		// springs
 
 		for (auto& i : springs_) {
-			vec2& p0 = i.b0->position;
-			vec2& p1 = i.b1->position;
+			vec2& p0 = i.p0;
+			vec2& p1 = i.p1;
 
 			vec2 dir = p1 - p0;
 
@@ -398,18 +397,18 @@ triangle::draw() const
 	glColor3f(color.r, color.g, color.b);
 
 	glBegin(GL_TRIANGLES);
-	glVertex2f(b0->position.x, b0->position.y);
-	glVertex2f(b1->position.x, b1->position.y);
-	glVertex2f(b2->position.x, b2->position.y);
+	glVertex2f(p0.x, p0.y);
+	glVertex2f(p1.x, p1.y);
+	glVertex2f(p2.x, p2.y);
 	glEnd();
 }
 
 static std::pair<float, float>
 project_triangle_to_axis(const vec2& dir, const triangle& t)
 {
-	float t0 = dir.dot(t.b0->position);
-	float t1 = dir.dot(t.b1->position);
-	float t2 = dir.dot(t.b2->position);
+	float t0 = dir.dot(t.p0);
+	float t1 = dir.dot(t.p1);
+	float t2 = dir.dot(t.p2);
 
 	return std::make_pair(std::min(t0, std::min(t1, t2)), std::max(t0, std::max(t1, t2)));
 }
@@ -450,35 +449,23 @@ triangle_intersection::separating_axis_test(const vec2& from, const vec2& to)
 bool
 triangle_intersection::operator()()
 {
-	{
-	const vec2& v0 = t0_.b0->position;
-	const vec2& v1 = t0_.b1->position;
-	const vec2& v2 = t0_.b2->position;
-
-	if (separating_axis_test<true>(v0, v1))
+	if (separating_axis_test<true>(t0_.p0, t0_.p1))
 		return false;
 
-	if (separating_axis_test<false>(v1, v2))
+	if (separating_axis_test<false>(t0_.p1, t0_.p2))
 		return false;
 
-	if (separating_axis_test<false>(v2, v0))
-		return false;
-	}
-
-	{
-	const vec2& v0 = t1_.b0->position;
-	const vec2& v1 = t1_.b1->position;
-	const vec2& v2 = t1_.b2->position;
-
-	if (separating_axis_test<false>(v0, v1))
+	if (separating_axis_test<false>(t0_.p2, t0_.p0))
 		return false;
 
-	if (separating_axis_test<false>(v1, v2))
+	if (separating_axis_test<false>(t1_.p0, t1_.p1))
 		return false;
 
-	if (separating_axis_test<false>(v2, v0))
+	if (separating_axis_test<false>(t1_.p1, t1_.p2))
 		return false;
-	}
+
+	if (separating_axis_test<false>(t1_.p2, t1_.p0))
+		return false;
 
 	return true;
 }
@@ -486,15 +473,11 @@ triangle_intersection::operator()()
 void
 triangle::initialize_bounding_circle()
 {
-	const vec2& v0 = b0->position;
-	const vec2& v1 = b1->position;
-	const vec2& v2 = b2->position;
+	center = (1./3.)*(p0 + p1 + p2);
 
-	center = (1./3.)*(v0 + v1 + v2);
-
-	const float r0 = (v0 - center).length();
-	const float r1 = (v1 - center).length();
-	const float r2 = (v2 - center).length();
+	const float r0 = (p0 - center).length();
+	const float r1 = (p1 - center).length();
+	const float r2 = (p2 - center).length();
 
 	radius = std::max(r0, std::max(r1, r2));
 }
@@ -505,8 +488,8 @@ spring::draw() const
 	glColor3f(1, 1, 1);
 
 	glBegin(GL_LINES);
-	glVertex2f(b0->position.x, b0->position.y);
-	glVertex2f(b1->position.x, b1->position.y);
+	glVertex2f(p0.x, p0.y);
+	glVertex2f(p1.x, p1.y);
 	glEnd();
 }
 
