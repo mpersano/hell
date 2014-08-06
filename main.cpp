@@ -35,7 +35,6 @@ struct body
 	{ }
 
 	void draw() const;
-	void zero_speed();
 
 	vec2 position;
 	vec2 prev_position;
@@ -221,10 +220,14 @@ world::spawn_piece(float x_origin, float y_origin, int type)
 	};
 
 	auto add_spring = [&] (size_t b0, size_t b1) {
-		if (spring_set.find(std::make_pair(b0, b1)) == spring_set.end() && spring_set.find(std::make_pair(b1, b0)) == spring_set.end()) {
-			springs_.push_back(spring(bodies_[b0], bodies_[b1]));
-			spring_set.insert(std::make_pair(b0, b1));
-		}
+		if (spring_set.find(std::make_pair(b0, b1)) != spring_set.end())
+			return;
+
+		if (spring_set.find(std::make_pair(b1, b0)) != spring_set.end())
+			return;
+
+		springs_.push_back(spring(bodies_[b0], bodies_[b1]));
+		spring_set.insert(std::make_pair(b0, b1));
 	};
 
 	for (int i = 0; i < PIECE_HEIGHT; i++) {
@@ -309,9 +312,9 @@ world::update()
 
 			vec2 dir = p1 - p0;
 
-			float f = .5*(dir.length() - i.rest_length);
+			float l = dir.length();
+			float f = .5*(l - i.rest_length)/l;
 
-			dir.normalize();
 			p0 += f*dir;
 			p1 -= f*dir;
 		}
@@ -352,8 +355,8 @@ world::update()
 					if (intersection()) {
 						vec2 push_vector = intersection.push_vector();
 
-						t0.shift(-.5*push_vector);
-						t1.shift(.5*push_vector);
+						t0.shift(-push_vector);
+						t1.shift(push_vector);
 					}
 				}
 			}
@@ -433,7 +436,7 @@ triangle_intersection::separating_axis_test(const vec2& from, const vec2& to)
 		push_length = s1.second - s0.first;
 	}
 
-	push_length *= FRICTION;
+	push_length *= .5*FRICTION;
 
 	if (First || push_length < push_vector_.length_squared())
 		push_vector_ = normal*(push_length/normal.length());
@@ -494,12 +497,6 @@ triangle::initialize_bounding_circle()
 	const float r2 = (v2 - center).length();
 
 	radius = std::max(r0, std::max(r1, r2));
-}
-
-void
-body::zero_speed()
-{
-	prev_position = position;
 }
 
 void
