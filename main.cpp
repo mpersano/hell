@@ -94,7 +94,7 @@ class triangle_intersection
 {
 public:
 	triangle_intersection(const triangle& t0, const triangle& t1)
-	: t0_(t0), t1_(t1), first_(true)
+	: t0_(t0), t1_(t1)
 	{ }
 
 	bool operator()();
@@ -103,10 +103,10 @@ public:
 	{ return push_vector_; }
 
 private:
+	template <bool First>
 	bool separating_axis_test(const vec2& from, const vec2& to);
 
 	const triangle &t0_, &t1_;
-	bool first_;
 	vec2 push_vector_;
 };
 
@@ -412,6 +412,7 @@ project_triangle_to_axis(const vec2& dir, const triangle& t)
 	return std::make_pair(std::min(t0, std::min(t1, t2)), std::max(t0, std::max(t1, t2)));
 }
 
+template <bool First>
 bool
 triangle_intersection::separating_axis_test(const vec2& from, const vec2& to)
 {
@@ -425,6 +426,8 @@ triangle_intersection::separating_axis_test(const vec2& from, const vec2& to)
 	if (s0.second < s1.first + EPSILON || s1.second < s0.first + EPSILON)
 		return true;
 
+	// update push_vector_
+
 	float push_length;
 
 	if (s0.second - s1.first < s1.second - s0.first) {
@@ -436,10 +439,8 @@ triangle_intersection::separating_axis_test(const vec2& from, const vec2& to)
 
 	push_length *= FRICTION;
 
-	if (first_ || push_length < push_vector_.length_squared())
+	if (First || push_length < push_vector_.length_squared())
 		push_vector_ = normal*(push_length/normal.length());
-
-	first_ = false;
 
 	return false;
 }
@@ -455,13 +456,13 @@ triangle_intersection::operator()()
 	const vec2& v1 = t0_.b1->position;
 	const vec2& v2 = t0_.b2->position;
 
-	if (separating_axis_test(v0, v1))
+	if (separating_axis_test<true>(v0, v1))
 		return false;
 
-	if (separating_axis_test(v1, v2))
+	if (separating_axis_test<false>(v1, v2))
 		return false;
 
-	if (separating_axis_test(v2, v0))
+	if (separating_axis_test<false>(v2, v0))
 		return false;
 	}
 
@@ -470,13 +471,13 @@ triangle_intersection::operator()()
 	const vec2& v1 = t1_.b1->position;
 	const vec2& v2 = t1_.b2->position;
 
-	if (separating_axis_test(v0, v1))
+	if (separating_axis_test<false>(v0, v1))
 		return false;
 
-	if (separating_axis_test(v1, v2))
+	if (separating_axis_test<false>(v1, v2))
 		return false;
 
-	if (separating_axis_test(v2, v0))
+	if (separating_axis_test<false>(v2, v0))
 		return false;
 	}
 
