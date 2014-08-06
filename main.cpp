@@ -17,8 +17,6 @@ static bool running = false;
 static const int WINDOW_WIDTH = 320;
 static const int WINDOW_HEIGHT = 240;
 
-static const int BORDER = 8;
-
 static const float BODY_RADIUS = 3;
 
 static const float GRAVITY = 1.;
@@ -27,6 +25,74 @@ static const float FRICTION = .6;
 
 static const int SPAWN_INTERVAL = 30;
 
+static const int BORDER = 8;
+
+static const float left_wall_x_ = BORDER;
+static const float right_wall_x_ = WINDOW_WIDTH - BORDER;
+static const float top_wall_y_ = BORDER;
+static const float bottom_wall_y_ = WINDOW_HEIGHT - BORDER;
+
+enum {
+	MAX_PIECE_ROWS = 4,
+	MAX_PIECE_COLS = 4,
+};
+
+struct rgb
+{
+	rgb(float r, float g, float b)
+	: r(r), g(g), b(b)
+	{ }
+
+	float r, g, b;
+};
+
+static const struct piece_pattern {
+	char pattern[MAX_PIECE_ROWS][MAX_PIECE_COLS + 1];
+	rgb color;
+} piece_patterns[] = {
+	{ { "    ",
+	    " ## ",
+	    " ## ",
+	    "    "  },
+	    rgb(0, 0, 1) },
+
+	{ { " #  ",
+	    " #  ",
+	    " #  ",
+	    " #  "  },
+	    rgb(0, 1, 0) },
+
+	{ { " #  ",
+	    " #  ",
+	    " ## ",
+	    "    "  },
+	    rgb(0, 1, 1) },
+
+	{ { "  # ",
+	    "  # ",
+	    " ## ",
+	    "    "  },
+	    rgb(1, 0, 0) },
+
+	{ { " #  ",
+	    " ## ",
+	    " #  ",
+	    "    "  },
+	    rgb(1, 0, 1) },
+
+	{ { " #  ",
+	    " ## ",
+	    "  # ",
+	    "    "  },
+	    rgb(1, 1, 0) },
+
+	{ { "  # ",
+	    " ## ",
+	    " #  ",
+	    "    "  },
+	    rgb(1, 1, 1) },
+};
+
 struct body
 {
 	body(const vec2& position)
@@ -34,14 +100,12 @@ struct body
 	, prev_position(position)
 	{ }
 
-	void update();
+	void update_position();
 	void draw() const;
 
 	vec2 position;
 	vec2 prev_position;
 };
-
-typedef std::shared_ptr<body> body_ptr;
 
 struct spring
 {
@@ -57,45 +121,32 @@ struct spring
 	float rest_length;
 };
 
-struct rgb
+struct quad
 {
-	rgb(float r, float g, float b)
-	: r(r), g(g), b(b)
-	{ }
-
-	float r, g, b;
-};
-
-struct triangle
-{
-	triangle(vec2& p0, vec2& p1, vec2& p2, const rgb& color)
+	quad(vec2& p0, vec2& p1, vec2& p2, vec2& p3)
 	: p0(p0)
 	, p1(p1)
 	, p2(p2)
-	, color(color)
+	, p3(p3)
 	{ }
 
 	void draw() const;
-
-	void initialize_bounding_circle();
 
 	void shift(const vec2& offset)
 	{
 		p0 += offset;
 		p1 += offset;
 		p2 += offset;
+		p3 += offset;
 	}
 
-	vec2 &p0, &p1, &p2;
-	rgb color;
-	vec2 center;
-	float radius;
+	vec2 &p0, &p1, &p2, &p3;
 };
 
-class triangle_intersection
+class quad_intersection
 {
 public:
-	triangle_intersection(const triangle& t0, const triangle& t1)
+	quad_intersection(const quad& t0, const quad& t1)
 	: t0_(t0), t1_(t1)
 	{ }
 
@@ -108,9 +159,32 @@ private:
 	template <bool First>
 	bool separating_axis_test(const vec2& from, const vec2& to);
 
-	const triangle &t0_, &t1_;
+	const quad &t0_, &t1_;
 	vec2 push_vector_;
 };
+
+class piece
+{
+public:
+	piece(const piece_pattern& pattern, float x_origin, float y_origin);
+
+	void draw() const;
+
+	void update_positions();
+	void check_constraints();
+	void collide(piece& other);
+
+private:
+	void update_bounding_box();
+
+	rgb color_;
+	std::vector<body> bodies_;
+	std::vector<spring> springs_;
+	std::vector<quad> quads_;
+	vec2 min_pos_, max_pos_;
+};
+
+typedef std::shared_ptr<piece> piece_ptr;
 
 class world
 {
@@ -120,256 +194,21 @@ public:
 	void draw() const;
 	void update();
 
-	void on_mouse_button_down(int button, int x, int y);
-	void on_mouse_button_up();
-	void on_mouse_motion(int x, int y);
-
 private:
-	void spawn_piece(float x_origin, float y_origin, int type);
-
 	void draw_walls() const;
 
-	std::vector<body_ptr> bodies_;
-	std::vector<triangle> triangles_;
-	std::vector<spring> springs_;
+	std::vector<piece_ptr> pieces_;
 
-	float left_wall_x_;
-	float right_wall_x_;
-	float top_wall_y_;
-	float bottom_wall_y_;
 	int spawn_tic_;
 };
 
-world::world()
-: left_wall_x_(BORDER)
-, right_wall_x_(WINDOW_WIDTH - BORDER)
-, top_wall_y_(BORDER)
-, bottom_wall_y_(WINDOW_HEIGHT - BORDER)
-, spawn_tic_(SPAWN_INTERVAL)
-{ }
+
+//
+//  b o d y
+//
 
 void
-world::spawn_piece(float x_origin, float y_origin, int type)
-{
-	static const float SPACING = 20;
-
-	enum {
-		PIECE_WIDTH = 4,
-		PIECE_HEIGHT = 4,
-	};
-
-	struct {
-		char pattern[PIECE_HEIGHT][PIECE_WIDTH + 1];
-		rgb color;
-	} pieces[] {
-		{ { "    ",
-		    " ## ",
-		    " ## ",
-		    "    "  },
-		    rgb(0, 0, 1) },
-
-		{ { " #  ",
-		    " #  ",
-		    " #  ",
-		    " #  "  },
-		    rgb(0, 1, 0) },
-
-		{ { " #  ",
-		    " #  ",
-		    " ## ",
-		    "    "  },
-		    rgb(0, 1, 1) },
-
-		{ { "  # ",
-		    "  # ",
-		    " ## ",
-		    "    "  },
-		    rgb(1, 0, 0) },
-
-		{ { " #  ",
-		    " ## ",
-		    " #  ",
-		    "    "  },
-		    rgb(1, 0, 1) },
-
-		{ { " #  ",
-		    " ## ",
-		    "  # ",
-		    "    "  },
-		    rgb(1, 1, 0) },
-
-		{ { "  # ",
-		    " ## ",
-		    " #  ",
-		    "    "  },
-		    rgb(1, 1, 1) },
-	};
-
-	std::map<std::pair<int, int>, size_t> body_map;
-	std::set<std::pair<size_t, size_t>> spring_set;
-
-	auto add_body = [&] (int i, int j) -> size_t {
-		auto it = body_map.find(std::make_pair(i, j));
-
-		if (it == body_map.end()) {
-			bodies_.push_back(std::make_shared<body>(vec2(x_origin + j*SPACING, y_origin + i*SPACING)));
-			it = body_map.insert(it, std::make_pair(std::make_pair(i, j), bodies_.size() - 1));
-		}
-
-		return it->second;
-	};
-
-	auto add_spring = [&] (size_t b0, size_t b1) {
-		if (spring_set.find(std::make_pair(b0, b1)) != spring_set.end())
-			return;
-
-		if (spring_set.find(std::make_pair(b1, b0)) != spring_set.end())
-			return;
-
-		springs_.push_back(spring(bodies_[b0]->position, bodies_[b1]->position));
-		spring_set.insert(std::make_pair(b0, b1));
-	};
-
-	for (int i = 0; i < PIECE_HEIGHT; i++) {
-		for (int j = 0; j < PIECE_WIDTH; j++) {
-			if (pieces[type].pattern[i][j] == '#') {
-				// bodies
-
-				size_t b0 = add_body(i, j);
-				size_t b1 = add_body(i, j + 1);
-				size_t b2 = add_body(i + 1, j + 1);
-				size_t b3 = add_body(i + 1, j);
-
-				// springs
-
-				add_spring(b0, b1);
-				add_spring(b1, b2);
-				add_spring(b2, b3);
-				add_spring(b3, b0);
-
-				add_spring(b0, b2);
-				add_spring(b1, b3);
-
-				// triangles
-
-				triangles_.push_back(triangle(bodies_[b0]->position, bodies_[b1]->position, bodies_[b2]->position, pieces[type].color));
-				triangles_.push_back(triangle(bodies_[b2]->position, bodies_[b3]->position, bodies_[b0]->position, pieces[type].color));
-			}
-		}
-	}
-
-	printf("%u bodies, %u springs, %u triangles\n", bodies_.size(), springs_.size(), triangles_.size());
-}
-
-void
-world::draw() const
-{
-	draw_walls();
-
-	for (auto& i : triangles_)
-		i.draw();
-
-	for (auto& i : bodies_)
-		i->draw();
-
-	for (auto& i : springs_)
-		i.draw();
-}
-
-void
-world::draw_walls() const
-{
-	glColor3f(1, 1, 1);
-
-	glBegin(GL_LINE_LOOP);
-	glVertex2f(left_wall_x_, top_wall_y_);
-	glVertex2f(right_wall_x_, top_wall_y_);
-	glVertex2f(right_wall_x_, bottom_wall_y_);
-	glVertex2f(left_wall_x_, bottom_wall_y_);
-	glEnd();
-}
-
-void
-world::update()
-{
-	// forces
-
-	for (auto& i : bodies_)
-		i->update();
-
-	static const int NUM_ITERATIONS = 30;
-
-	for (int i = 0; i < NUM_ITERATIONS; i++) {
-		// springs
-
-		for (auto& i : springs_) {
-			vec2& p0 = i.p0;
-			vec2& p1 = i.p1;
-
-			vec2 dir = p1 - p0;
-
-			float l = dir.length();
-			float f = .5*(l - i.rest_length)/l;
-
-			p0 += f*dir;
-			p1 -= f*dir;
-		}
-
-		// body-wall collisions
-
-		for (auto& i : bodies_) {
-			vec2& p = i->position;
-
-			if (p.y < top_wall_y_)
-				p.y += FRICTION*(top_wall_y_ - p.y);
-
-#if 0
-			if (p.y > bottom_wall_y_)
-				p.y += FRICTION*(bottom_wall_y_ - p.y);
-#endif
-
-			if (p.x < left_wall_x_)
-				p.x += FRICTION*(left_wall_x_ - p.x);
-
-			if (p.x > right_wall_x_)
-				p.x += FRICTION*(right_wall_x_ - p.x);
-		}
-
-		// triangle-triangle collisions
-
-		if (triangles_.size()) {
-			for (auto& t : triangles_)
-				t.initialize_bounding_circle();
-
-			for (size_t i = 0; i < triangles_.size() - 1; i++) {
-				for (size_t j = i + 1; j < triangles_.size(); j++) {
-					triangle& t0 = triangles_[i];
-					triangle& t1 = triangles_[j];
-
-					if ((t0.center - t1.center).length_squared() > (t0.radius + t1.radius)*(t0.radius + t1.radius))
-						continue;
-
-					triangle_intersection intersection(t0, t1);
-
-					if (intersection()) {
-						vec2 push_vector = intersection.push_vector();
-
-						t0.shift(-push_vector);
-						t1.shift(push_vector);
-					}
-				}
-			}
-		}
-	}
-
-	if (!--spawn_tic_) {
-		spawn_piece(2*BORDER + rand()%(WINDOW_WIDTH - 4*BORDER - 20*4), WINDOW_HEIGHT, rand()%7);
-		spawn_tic_ = SPAWN_INTERVAL;
-	}
-}
-
-void
-body::update()
+body::update_position()
 {
 	vec2 speed = DAMPING*(position - prev_position);
 	prev_position = position;
@@ -396,36 +235,65 @@ body::draw() const
 	glEnd();
 }
 
-void
-triangle::draw() const
-{
-	glColor3f(color.r, color.g, color.b);
 
-	glBegin(GL_TRIANGLES);
+//
+//  s p r i n g
+//
+
+void
+spring::draw() const
+{
+	glColor3f(1, 1, 1);
+
+	glBegin(GL_LINES);
 	glVertex2f(p0.x, p0.y);
 	glVertex2f(p1.x, p1.y);
-	glVertex2f(p2.x, p2.y);
 	glEnd();
 }
 
+
+//
+//  q u a d
+//
+
+void
+quad::draw() const
+{
+	glBegin(GL_QUADS);
+	glVertex2f(p0.x, p0.y);
+	glVertex2f(p1.x, p1.y);
+	glVertex2f(p2.x, p2.y);
+	glVertex2f(p3.x, p3.y);
+	glEnd();
+}
+
+
+//
+//  q u a d _ i n t e r s e c t i o n
+//
+
 static std::pair<float, float>
-project_triangle_to_axis(const vec2& dir, const triangle& t)
+project_quad_to_axis(const vec2& dir, const quad& t)
 {
 	float t0 = dir.dot(t.p0);
 	float t1 = dir.dot(t.p1);
 	float t2 = dir.dot(t.p2);
+	float t3 = dir.dot(t.p3);
 
-	return std::make_pair(std::min(t0, std::min(t1, t2)), std::max(t0, std::max(t1, t2)));
+	float min = std::min(t0, std::min(t1, std::min(t2, t3)));
+	float max = std::max(t0, std::max(t1, std::max(t2, t3)));
+
+	return std::make_pair(min, max);
 }
 
 template <bool First>
 bool
-triangle_intersection::separating_axis_test(const vec2& from, const vec2& to)
+quad_intersection::separating_axis_test(const vec2& from, const vec2& to)
 {
 	vec2 normal = vec2(-(to.y - from.y), to.x - from.x).normalize();
 
-	std::pair<float, float> s0 = project_triangle_to_axis(normal, t0_);
-	std::pair<float, float> s1 = project_triangle_to_axis(normal, t1_);
+	std::pair<float, float> s0 = project_quad_to_axis(normal, t0_);
+	std::pair<float, float> s1 = project_quad_to_axis(normal, t1_);
 
 	static const float EPSILON = 1e-5;
 
@@ -452,7 +320,7 @@ triangle_intersection::separating_axis_test(const vec2& from, const vec2& to)
 }
 
 bool
-triangle_intersection::operator()()
+quad_intersection::operator()()
 {
 	if (separating_axis_test<true>(t0_.p0, t0_.p1))
 		return false;
@@ -460,7 +328,10 @@ triangle_intersection::operator()()
 	if (separating_axis_test<false>(t0_.p1, t0_.p2))
 		return false;
 
-	if (separating_axis_test<false>(t0_.p2, t0_.p0))
+	if (separating_axis_test<false>(t0_.p2, t0_.p3))
+		return false;
+
+	if (separating_axis_test<false>(t0_.p3, t0_.p0))
 		return false;
 
 	if (separating_axis_test<false>(t1_.p0, t1_.p1))
@@ -469,46 +340,262 @@ triangle_intersection::operator()()
 	if (separating_axis_test<false>(t1_.p1, t1_.p2))
 		return false;
 
-	if (separating_axis_test<false>(t1_.p2, t1_.p0))
+	if (separating_axis_test<false>(t1_.p2, t1_.p3))
+		return false;
+
+	if (separating_axis_test<false>(t1_.p3, t1_.p0))
 		return false;
 
 	return true;
 }
 
-void
-triangle::initialize_bounding_circle()
+//
+//  p i e c e
+//
+
+piece::piece(const piece_pattern& pattern, float x_origin, float y_origin)
+: color_(pattern.color)
 {
-	center = (1./3.)*(p0 + p1 + p2);
+	std::map<std::pair<int, int>, size_t> body_map;
+	std::set<std::pair<size_t, size_t>> spring_set;
 
-	const float r0 = (p0 - center).length();
-	const float r1 = (p1 - center).length();
-	const float r2 = (p2 - center).length();
+	auto add_body = [&] (int i, int j) -> size_t {
+		auto it = body_map.find(std::make_pair(i, j));
 
-	radius = std::max(r0, std::max(r1, r2));
+		if (it == body_map.end()) {
+			static const float SPACING = 12;
+
+			bodies_.push_back(vec2(x_origin + j*SPACING, y_origin + i*SPACING));
+			it = body_map.insert(it, std::make_pair(std::make_pair(i, j), bodies_.size() - 1));
+		}
+
+		return it->second;
+	};
+
+	auto add_spring = [&] (size_t b0, size_t b1) {
+		if (spring_set.find(std::make_pair(b0, b1)) != spring_set.end())
+			return;
+
+		if (spring_set.find(std::make_pair(b1, b0)) != spring_set.end())
+			return;
+
+		springs_.push_back(spring(bodies_[b0].position, bodies_[b1].position));
+		spring_set.insert(std::make_pair(b0, b1));
+	};
+
+	bodies_.reserve(32); // ;_;
+
+	for (int i = 0; i < MAX_PIECE_ROWS; i++) {
+		for (int j = 0; j < MAX_PIECE_COLS; j++) {
+			if (pattern.pattern[i][j] == '#') {
+				// bodies
+
+				size_t b0 = add_body(i, j);
+				size_t b1 = add_body(i, j + 1);
+				size_t b2 = add_body(i + 1, j + 1);
+				size_t b3 = add_body(i + 1, j);
+
+				// springs
+
+				add_spring(b0, b1);
+				add_spring(b1, b2);
+				add_spring(b2, b3);
+				add_spring(b3, b0);
+
+				add_spring(b0, b2);
+				add_spring(b1, b3);
+
+				// quads
+
+				vec2& v0 = bodies_[b0].position;
+				vec2& v1 = bodies_[b1].position;
+				vec2& v2 = bodies_[b2].position;
+				vec2& v3 = bodies_[b3].position;
+
+				quads_.push_back(quad(v0, v1, v2, v3));
+			}
+		}
+	}
+
+	update_bounding_box();
+
+	printf("%u bodies, %u springs, %u quads\n", bodies_.size(), springs_.size(), quads_.size());
 }
 
 void
-spring::draw() const
+piece::update_positions()
+{
+	for (auto& i : bodies_)
+		i.update_position();
+
+	update_bounding_box();
+}
+
+void
+piece::check_constraints()
+{
+	// springs
+
+	for (auto& i : springs_) {
+		vec2& p0 = i.p0;
+		vec2& p1 = i.p1;
+
+		vec2 dir = p1 - p0;
+
+		float l = dir.length();
+		float f = .5*(l - i.rest_length)/l;
+
+		p0 += f*dir;
+		p1 -= f*dir;
+	}
+
+	// body-wall collisions
+
+	for (auto& i : bodies_) {
+		vec2& p = i.position;
+
+		if (p.y < top_wall_y_)
+			p.y += FRICTION*(top_wall_y_ - p.y);
+
+#if 0
+		if (p.y > bottom_wall_y_)
+			p.y += FRICTION*(bottom_wall_y_ - p.y);
+#endif
+
+		if (p.x < left_wall_x_)
+			p.x += FRICTION*(left_wall_x_ - p.x);
+
+		if (p.x > right_wall_x_)
+			p.x += FRICTION*(right_wall_x_ - p.x);
+	}
+
+	update_bounding_box();
+}
+
+void
+piece::collide(piece& other)
+{
+	// bounding box
+
+	if (max_pos_.x < other.min_pos_.x)
+		return;
+
+	if (other.max_pos_.x < min_pos_.x)
+		return;
+
+	if (max_pos_.y < other.min_pos_.y)
+		return;
+
+	if (other.max_pos_.y < min_pos_.y)
+		return;
+
+	// quads
+
+	bool collided = false;
+
+	for (auto& i : quads_) {
+		for (auto& j : other.quads_) {
+			quad_intersection intersection(i, j);
+
+			if (intersection()) {
+				vec2 push_vector = intersection.push_vector();
+
+				i.shift(-push_vector);
+				j.shift(push_vector);
+
+				collided = true;
+			}
+		}
+	}
+
+	if (collided)
+		update_bounding_box();
+}
+
+void
+piece::draw() const
+{
+	glColor3f(color_.r, color_.g, color_.b);
+
+	for (auto& i : quads_)
+		i.draw();
+}
+
+void
+piece::update_bounding_box()
+{
+	min_pos_ = max_pos_ = bodies_[0].position;
+
+	std::for_each(
+		bodies_.begin() + 1,
+		bodies_.end(),
+		[this] (const body& b) {
+			min_pos_.x = std::min(min_pos_.x, b.position.x);
+			max_pos_.x = std::max(max_pos_.x, b.position.x);
+
+			min_pos_.y = std::min(min_pos_.y, b.position.y);
+			max_pos_.y = std::max(max_pos_.y, b.position.y);
+		});
+}
+
+//
+//  w o r l d
+//
+
+world::world()
+: spawn_tic_(SPAWN_INTERVAL)
+{ }
+
+void
+world::draw() const
+{
+	draw_walls();
+
+	for (auto& i : pieces_)
+		i->draw();
+}
+
+void
+world::draw_walls() const
 {
 	glColor3f(1, 1, 1);
 
-	glBegin(GL_LINES);
-	glVertex2f(p0.x, p0.y);
-	glVertex2f(p1.x, p1.y);
+	glBegin(GL_LINE_LOOP);
+	glVertex2f(left_wall_x_, top_wall_y_);
+	glVertex2f(right_wall_x_, top_wall_y_);
+	glVertex2f(right_wall_x_, bottom_wall_y_);
+	glVertex2f(left_wall_x_, bottom_wall_y_);
 	glEnd();
 }
 
 void
-world::on_mouse_button_down(int, int, int)
-{ }
+world::update()
+{
+	if (!pieces_.empty()) {
+		for (auto& i : pieces_)
+			i->update_positions();
 
-void
-world::on_mouse_button_up()
-{ }
+		static const int NUM_ITERATIONS = 30;
 
-void
-world::on_mouse_motion(int, int)
-{ }
+		for (int i = 0; i < NUM_ITERATIONS; i++) {
+			for (auto& i : pieces_)
+				i->check_constraints();
+
+			for (size_t j = 0; j < pieces_.size() - 1; j++)
+				for (size_t k = j + 1; k < pieces_.size(); k++)
+					pieces_[j]->collide(*pieces_[k]);
+		}
+	}
+
+	if (!--spawn_tic_) {
+		const float x = 2*BORDER + rand()%(WINDOW_WIDTH - 4*BORDER - 20*4);
+		const float y = WINDOW_HEIGHT;
+		const int type = rand()%(sizeof piece_patterns/sizeof *piece_patterns);
+
+		pieces_.push_back(std::make_shared<piece>(piece_patterns[type], x, y));
+		spawn_tic_ = SPAWN_INTERVAL;
+	}
+}
 
 static void
 init_sdl()
@@ -579,6 +666,7 @@ handle_events()
 				running = false;
 				break;
 
+#if 0
 			case SDL_MOUSEBUTTONDOWN:
 				w.on_mouse_button_down(event.button.button, event.button.x, WINDOW_HEIGHT - event.button.y - 1);
 				break;
@@ -590,6 +678,7 @@ handle_events()
 			case SDL_MOUSEMOTION:
 				w.on_mouse_motion(event.motion.x, WINDOW_HEIGHT - event.motion.y - 1);
 				break;
+#endif
 		}
 	}
 }
