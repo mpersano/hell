@@ -350,6 +350,9 @@ world::update()
 					triangle& t0 = triangles_[i];
 					triangle& t1 = triangles_[j];
 
+					if ((t0.center - t1.center).length_squared() > (t0.radius + t1.radius)*(t0.radius + t1.radius))
+						continue;
+
 					triangle_intersection intersection(t0, t1);
 
 					if (intersection()) {
@@ -447,9 +450,6 @@ triangle_intersection::separating_axis_test(const vec2& from, const vec2& to)
 bool
 triangle_intersection::operator()()
 {
-	if ((t0_.center - t1_.center).length_squared() > (t0_.radius + t1_.radius)*(t0_.radius + t1_.radius))
-		return false;
-	
 	{
 	const vec2& v0 = t0_.b0->position;
 	const vec2& v1 = t0_.b1->position;
