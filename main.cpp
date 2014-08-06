@@ -34,6 +34,7 @@ struct body
 	, prev_position(position)
 	{ }
 
+	void update();
 	void draw() const;
 
 	vec2 position;
@@ -293,12 +294,8 @@ world::update()
 {
 	// forces
 
-	for (auto& i : bodies_) {
-		vec2 speed = DAMPING*(i->position - i->prev_position);
-
-		i->prev_position = i->position;
-		i->position += speed + vec2(0, -GRAVITY);
-	}
+	for (auto& i : bodies_)
+		i->update();
 
 	static const int NUM_ITERATIONS = 30;
 
@@ -369,6 +366,14 @@ world::update()
 		spawn_piece(2*BORDER + rand()%(WINDOW_WIDTH - 4*BORDER - 20*4), WINDOW_HEIGHT, rand()%7);
 		spawn_tic_ = SPAWN_INTERVAL;
 	}
+}
+
+void
+body::update()
+{
+	vec2 speed = DAMPING*(position - prev_position);
+	prev_position = position;
+	position += speed + vec2(0, -GRAVITY);
 }
 
 void
