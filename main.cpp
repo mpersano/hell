@@ -1,6 +1,7 @@
 #include <SDL.h>
 #include <GL/glew.h>
 
+#include <memory>
 #include <map>
 #include <set>
 #include <algorithm>
@@ -41,9 +42,11 @@ struct body
 	vec2 acceleration;
 };
 
+typedef std::shared_ptr<body> body_ptr;
+
 struct spring
 {
-	spring(body *b0, body *b1)
+	spring(body_ptr b0, body_ptr b1)
 	: b0(b0)
 	, b1(b1)
 	, rest_length((b0->position - b1->position).length())
@@ -51,7 +54,7 @@ struct spring
 
 	void draw() const;
 
-	body *b0, *b1;
+	body_ptr b0, b1;
 	float rest_length;
 };
 
@@ -66,7 +69,7 @@ struct rgb
 
 struct triangle
 {
-	triangle(body *b0, body *b1, body *b2, const rgb& color)
+	triangle(body_ptr b0, body_ptr b1, body_ptr b2, const rgb& color)
 	: b0(b0)
 	, b1(b1)
 	, b2(b2)
@@ -84,7 +87,7 @@ struct triangle
 		b2->position += offset;
 	}
 
-	body *b0, *b1, *b2;
+	body_ptr b0, b1, b2;
 	rgb color;
 	vec2 center;
 	float radius;
@@ -127,7 +130,7 @@ private:
 
 	void draw_walls() const;
 
-	std::vector<body> bodies_;
+	std::vector<body_ptr> bodies_;
 	std::vector<triangle> triangles_;
 	std::vector<spring> springs_;
 
@@ -139,19 +142,12 @@ private:
 };
 
 world::world()
-: spawn_tic_(SPAWN_INTERVAL)
-{
-	// walls
-
-	left_wall_x_ = BORDER;
-	right_wall_x_ = WINDOW_WIDTH - BORDER;
-	top_wall_y_ = BORDER;
-	bottom_wall_y_ = WINDOW_HEIGHT - BORDER;
-
-	// bodies
-
-	bodies_.reserve(5000); // (;_;)
-}
+: left_wall_x_(BORDER)
+, right_wall_x_(WINDOW_WIDTH - BORDER)
+, top_wall_y_(BORDER)
+, bottom_wall_y_(WINDOW_HEIGHT - BORDER)
+, spawn_tic_(SPAWN_INTERVAL)
+{ }
 
 void
 world::spawn_piece(float x_origin, float y_origin, int type)
@@ -217,7 +213,7 @@ world::spawn_piece(float x_origin, float y_origin, int type)
 		auto it = body_map.find(std::make_pair(i, j));
 
 		if (it == body_map.end()) {
-			bodies_.push_back(vec2(x_origin + j*SPACING, y_origin + i*SPACING));
+			bodies_.push_back(std::make_shared<body>(vec2(x_origin + j*SPACING, y_origin + i*SPACING)));
 			it = body_map.insert(it, std::make_pair(std::make_pair(i, j), bodies_.size() - 1));
 		}
 
@@ -225,8 +221,8 @@ world::spawn_piece(float x_origin, float y_origin, int type)
 	};
 
 	auto add_spring = [&] (size_t b0, size_t b1) {
-		if (spring_set.find(std::make_pair(b0, b1)) == spring_set.end()) {
-			springs_.push_back(spring(&bodies_[b0], &bodies_[b1]));
+		if (spring_set.find(std::make_pair(b0, b1)) == spring_set.end() && spring_set.find(std::make_pair(b1, b0)) == spring_set.end()) {
+			springs_.push_back(spring(bodies_[b0], bodies_[b1]));
 			spring_set.insert(std::make_pair(b0, b1));
 		}
 	};
@@ -253,8 +249,8 @@ world::spawn_piece(float x_origin, float y_origin, int type)
 
 				// triangles
 
-				triangles_.push_back(triangle(&bodies_[b0], &bodies_[b1], &bodies_[b2], pieces[type].color));
-				triangles_.push_back(triangle(&bodies_[b2], &bodies_[b3], &bodies_[b0], pieces[type].color));
+				triangles_.push_back(triangle(bodies_[b0], bodies_[b1], bodies_[b2], pieces[type].color));
+				triangles_.push_back(triangle(bodies_[b2], bodies_[b3], bodies_[b0], pieces[type].color));
 			}
 		}
 	}
@@ -271,7 +267,7 @@ world::draw() const
 		i.draw();
 
 	for (auto& i : bodies_)
-		i.draw();
+		i->draw();
 
 	for (auto& i : springs_)
 		i.draw();
@@ -296,10 +292,10 @@ world::update()
 	// forces
 
 	for (auto& i : bodies_) {
-		vec2 speed = DAMPING*(i.position - i.prev_position);
+		vec2 speed = DAMPING*(i->position - i->prev_position);
 
-		i.prev_position = i.position;
-		i.position += speed + vec2(0, -GRAVITY);
+		i->prev_position = i->position;
+		i->position += speed + vec2(0, -GRAVITY);
 	}
 
 	static const int NUM_ITERATIONS = 16;
@@ -308,22 +304,22 @@ world::update()
 		// springs
 
 		for (auto& i : springs_) {
-			body *b0 = i.b0;
-			body *b1 = i.b1;
+			vec2& p0 = i.b0->position;
+			vec2& p1 = i.b1->position;
 
-			vec2 dir = b1->position - b0->position;
+			vec2 dir = p1 - p0;
 
 			float f = .5*(dir.length() - i.rest_length);
 
 			dir.normalize();
-			b0->position += f*dir;
-			b1->position -= f*dir;
+			p0 += f*dir;
+			p1 -= f*dir;
 		}
 
 		// body-wall collisions
 
 		for (auto& i : bodies_) {
-			vec2& p = i.position;
+			vec2& p = i->position;
 
 			if (p.y < top_wall_y_)
 				p.y += FRICTION*(top_wall_y_ - p.y);
