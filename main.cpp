@@ -438,7 +438,7 @@ triangle_intersection::separating_axis_test(const vec2& from, const vec2& to)
 
 	push_length *= .5*FRICTION;
 
-	if (First || push_length < push_vector_.length_squared())
+	if (First || push_length*push_length < push_vector_.length_squared())
 		push_vector_ = normal*(push_length/normal.length());
 
 	return false;
