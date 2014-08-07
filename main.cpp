@@ -14,8 +14,8 @@
 
 static bool running = false;
 
-static const int WINDOW_WIDTH = 320;
-static const int WINDOW_HEIGHT = 240;
+static const int WINDOW_WIDTH = 240;
+static const int WINDOW_HEIGHT = 320;
 
 static const float BODY_RADIUS = 3;
 
@@ -27,10 +27,7 @@ static const int SPAWN_INTERVAL = 30;
 
 static const int BORDER = 8;
 
-static const float left_wall_x_ = BORDER;
-static const float right_wall_x_ = WINDOW_WIDTH - BORDER;
-static const float top_wall_y_ = BORDER;
-static const float bottom_wall_y_ = WINDOW_HEIGHT - BORDER;
+static const float BOWL_RADIUS = .5*(WINDOW_WIDTH - 2*BORDER);
 
 enum {
 	MAX_PIECE_ROWS = 4,
@@ -374,7 +371,7 @@ piece::piece(const piece_pattern& pattern, float x_origin, float y_origin)
 		auto it = body_map.find(std::make_pair(i, j));
 
 		if (it == body_map.end()) {
-			static const float SPACING = 12;
+			static const float SPACING = 20;
 
 			bodies_.push_back(vec2(x_origin + j*SPACING, y_origin + i*SPACING));
 			it = body_map.insert(it, std::make_pair(std::make_pair(i, j), bodies_.size() - 1));
@@ -465,19 +462,21 @@ piece::check_constraints()
 	for (auto& i : bodies_) {
 		vec2& p = i.position;
 
-		if (p.y < top_wall_y_)
-			p.y += FRICTION*(top_wall_y_ - p.y);
+		if (p.y > BORDER + BOWL_RADIUS) {
+			if (p.x < BORDER)
+				p.x += FRICTION*(BORDER - p.x);
 
-#if 0
-		if (p.y > bottom_wall_y_)
-			p.y += FRICTION*(bottom_wall_y_ - p.y);
-#endif
+			if (p.x > WINDOW_WIDTH - BORDER)
+				p.x += FRICTION*(WINDOW_WIDTH - BORDER - p.x);
 
-		if (p.x < left_wall_x_)
-			p.x += FRICTION*(left_wall_x_ - p.x);
+		} else {
+			vec2 d = p - vec2(.5*WINDOW_WIDTH, BORDER + BOWL_RADIUS);
 
-		if (p.x > right_wall_x_)
-			p.x += FRICTION*(right_wall_x_ - p.x);
+			float r = d.length();
+
+			if (r > BOWL_RADIUS)
+				p -= d*(FRICTION*(r - BOWL_RADIUS)/r);
+		}
 	}
 
 	update_bounding_box();
@@ -571,10 +570,24 @@ world::draw_walls() const
 	glColor3f(1, 1, 1);
 
 	glBegin(GL_LINE_LOOP);
-	glVertex2f(left_wall_x_, top_wall_y_);
-	glVertex2f(right_wall_x_, top_wall_y_);
-	glVertex2f(right_wall_x_, bottom_wall_y_);
-	glVertex2f(left_wall_x_, bottom_wall_y_);
+
+	glVertex2f(BORDER, WINDOW_HEIGHT);
+
+	const int NUM_SEGS = 32;
+	
+	float a = 0;
+	const float da = M_PI/NUM_SEGS;
+
+	for (int i = 0; i < NUM_SEGS; i++) {
+		float x = .5*WINDOW_WIDTH - BOWL_RADIUS*cos(a);
+		float y = BORDER + BOWL_RADIUS - BOWL_RADIUS*sin(a);
+
+		glVertex2f(x, y);
+		a += da;
+	}
+
+	glVertex2f(WINDOW_WIDTH - BORDER, WINDOW_HEIGHT);
+
 	glEnd();
 }
 
