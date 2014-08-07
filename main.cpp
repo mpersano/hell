@@ -508,8 +508,10 @@ piece::collide(piece& other)
 		}
 	}
 
-	if (collided)
+	if (collided) {
 		update_bounding_box();
+		other.update_bounding_box();
+	}
 }
 
 void
