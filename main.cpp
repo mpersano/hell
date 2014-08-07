@@ -132,12 +132,22 @@ struct quad
 
 	void draw() const;
 
-	void shift(const vec2& offset)
+	quad& operator+=(const vec2& v)
 	{
-		p0 += offset;
-		p1 += offset;
-		p2 += offset;
-		p3 += offset;
+		p0 += v;
+		p1 += v;
+		p2 += v;
+		p3 += v;
+		return *this;
+	}
+
+	quad& operator-=(const vec2& v)
+	{
+		p0 -= v;
+		p1 -= v;
+		p2 -= v;
+		p3 -= v;
+		return *this;
 	}
 
 	vec2 &p0, &p1, &p2, &p3;
@@ -349,6 +359,7 @@ quad_intersection::operator()()
 	return true;
 }
 
+
 //
 //  p i e c e
 //
@@ -493,16 +504,13 @@ piece::collide(piece& other)
 
 	bool collided = false;
 
-	for (auto& i : quads_) {
-		for (auto& j : other.quads_) {
-			quad_intersection intersection(i, j);
+	for (auto& q0 : quads_) {
+		for (auto& q1 : other.quads_) {
+			quad_intersection intersection(q0, q1);
 
 			if (intersection()) {
-				vec2 push_vector = intersection.push_vector();
-
-				i.shift(-push_vector);
-				j.shift(push_vector);
-
+				q0 -= intersection.push_vector();
+				q1 += intersection.push_vector();
 				collided = true;
 			}
 		}
