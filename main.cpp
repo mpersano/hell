@@ -689,19 +689,10 @@ handle_events()
 				running = false;
 				break;
 
-#if 0
-			case SDL_MOUSEBUTTONDOWN:
-				w.on_mouse_button_down(event.button.button, event.button.x, WINDOW_HEIGHT - event.button.y - 1);
+			case SDL_KEYDOWN:
+				if (event.key.keysym.sym == SDLK_ESCAPE)
+					running = false;
 				break;
-
-			case SDL_MOUSEBUTTONUP:
-				w.on_mouse_button_up();
-				break;
-
-			case SDL_MOUSEMOTION:
-				w.on_mouse_motion(event.motion.x, WINDOW_HEIGHT - event.motion.y - 1);
-				break;
-#endif
 		}
 	}
 }
