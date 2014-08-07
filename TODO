@@ -1,0 +1,14 @@
+TODO:
+* bowl shape for bottom of play area
+* textures
+  * generate piece textures
+* some sort of broad phase for collision detection
+  (spatial hashing)
+* score count
+* controls
+* "game over" state
+* "get ready" state
+* menu state
+* credits screen
+* multiple resolution support
+* android port
