@@ -8,6 +8,7 @@ LIBS = `pkg-config --libs glew sdl gl glu libpng`
 
 CXXFILES = \
 	main.cpp \
+	world.cpp \
 	panic.cpp
 
 TARGET = demo

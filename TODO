@@ -1,8 +1,8 @@
 TODO:
-* bowl shape for bottom of play area
+v bowl shape for bottom of play area
 * textures
   * generate piece textures
-* some sort of broad phase for collision detection
+? some sort of broad phase for collision detection
   (spatial hashing)
 * score count
 * controls
