@@ -532,7 +532,7 @@ world_impl::draw_walls() const
 	const int NUM_SEGS = 20;
 	
 	float a = 0;
-	const float da = M_PI/NUM_SEGS;
+	const float da = M_PI/(NUM_SEGS - 1);
 
 	for (int i = 0; i < NUM_SEGS; i++) {
 		float x = bowl_radius*(1 - cosf(a));
