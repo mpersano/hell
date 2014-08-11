@@ -92,6 +92,8 @@ struct body
 	vec2 prev_position;
 };
 
+using body_ptr = std::shared_ptr<body>;
+
 struct spring
 {
 	spring(vec2& p0, vec2& p1)
@@ -113,33 +115,13 @@ struct quad
 	, p3(p3)
 	{ }
 
-	void draw() const;
-
-	quad& operator+=(const vec2& v)
-	{
-		p0 += v;
-		p1 += v;
-		p2 += v;
-		p3 += v;
-		return *this;
-	}
-
-	quad& operator-=(const vec2& v)
-	{
-		p0 -= v;
-		p1 -= v;
-		p2 -= v;
-		p3 -= v;
-		return *this;
-	}
-
 	vec2 &p0, &p1, &p2, &p3;
 };
 
-class quad_intersection
+class quad_collision
 {
 public:
-	quad_intersection(const quad& t0, const quad& t1)
+	quad_collision(quad& t0, quad& t1)
 	: t0_(t0), t1_(t1)
 	{ }
 
@@ -152,7 +134,7 @@ private:
 	template <bool First>
 	bool separating_axis_test(const vec2& from, const vec2& to);
 
-	const quad &t0_, &t1_;
+	quad &t0_, &t1_;
 	vec2 push_vector_;
 };
 
@@ -177,7 +159,7 @@ private:
 	vec2 min_pos_, max_pos_;
 };
 
-typedef std::shared_ptr<piece> piece_ptr;
+using piece_ptr = std::shared_ptr<piece>;
 
 class world_impl
 {
@@ -210,25 +192,8 @@ body::update_position()
 	position += speed + vec2(0, -GRAVITY);
 }
 
-
 //
-//  q u a d
-//
-
-void
-quad::draw() const
-{
-	glBegin(GL_QUADS);
-	glVertex2f(p0.x, p0.y);
-	glVertex2f(p1.x, p1.y);
-	glVertex2f(p2.x, p2.y);
-	glVertex2f(p3.x, p3.y);
-	glEnd();
-}
-
-
-//
-//  q u a d _ i n t e r s e c t i o n
+//  q u a d _ c o l l i s i o n
 //
 
 static std::pair<float, float>
@@ -247,7 +212,7 @@ project_quad_to_axis(const vec2& dir, const quad& t)
 
 template <bool First>
 bool
-quad_intersection::separating_axis_test(const vec2& from, const vec2& to)
+quad_collision::separating_axis_test(const vec2& from, const vec2& to)
 {
 	vec2 normal = vec2(-(to.y - from.y), to.x - from.x).normalize();
 
@@ -279,7 +244,7 @@ quad_intersection::separating_axis_test(const vec2& from, const vec2& to)
 }
 
 bool
-quad_intersection::operator()()
+quad_collision::operator()()
 {
 	if (separating_axis_test<true>(t0_.p0, t0_.p1))
 		return false;
@@ -305,6 +270,16 @@ quad_intersection::operator()()
 	if (separating_axis_test<false>(t1_.p3, t1_.p0))
 		return false;
 
+	t0_.p0 -= push_vector_;
+	t0_.p1 -= push_vector_;
+	t0_.p2 -= push_vector_;
+	t0_.p3 -= push_vector_;
+
+	t1_.p0 += push_vector_;
+	t1_.p1 += push_vector_;
+	t1_.p2 += push_vector_;
+	t1_.p3 += push_vector_;
+
 	return true;
 }
 
@@ -316,59 +291,59 @@ quad_intersection::operator()()
 piece::piece(const piece_pattern& pattern, float x_origin, float y_origin)
 : color_(pattern.color)
 {
-	std::map<std::pair<int, int>, size_t> body_map;
-	std::set<std::pair<size_t, size_t>> spring_set;
+	std::map<std::pair<int, int>, body *> body_map;
+	std::set<std::pair<vec2 *, vec2 *>> spring_set;
 
-	auto add_body = [&] (int i, int j) -> size_t {
+	auto add_body = [&] (int i, int j) -> body * {
 		auto it = body_map.find(std::make_pair(i, j));
 
 		if (it == body_map.end()) {
 			bodies_.push_back(vec2(x_origin + j*BLOCK_SIZE, y_origin + i*BLOCK_SIZE));
-			it = body_map.insert(it, std::make_pair(std::make_pair(i, j), bodies_.size() - 1));
+			it = body_map.insert(it, std::make_pair(std::make_pair(i, j), &bodies_.back()));
 		}
 
 		return it->second;
 	};
 
-	auto add_spring = [&] (size_t b0, size_t b1) {
-		if (spring_set.find(std::make_pair(b0, b1)) != spring_set.end())
+	auto add_spring = [&] (vec2& v0, vec2& v1) {
+		if (spring_set.find(std::make_pair(&v0, &v1)) != spring_set.end())
 			return;
 
-		if (spring_set.find(std::make_pair(b1, b0)) != spring_set.end())
+		if (spring_set.find(std::make_pair(&v1, &v0)) != spring_set.end())
 			return;
 
-		springs_.push_back(spring(bodies_[b0].position, bodies_[b1].position));
-		spring_set.insert(std::make_pair(b0, b1));
+		springs_.push_back(spring(v0, v1));
+		spring_set.insert(std::make_pair(&v0, &v1));
 	};
 
-	bodies_.reserve(32); // ;_;
+	bodies_.reserve((MAX_PIECE_ROWS + 1)*(MAX_PIECE_COLS + 1));
 
 	for (int i = 0; i < MAX_PIECE_ROWS; i++) {
 		for (int j = 0; j < MAX_PIECE_COLS; j++) {
 			if (pattern.pattern[i][j] == '#') {
 				// bodies
 
-				size_t b0 = add_body(i, j);
-				size_t b1 = add_body(i, j + 1);
-				size_t b2 = add_body(i + 1, j + 1);
-				size_t b3 = add_body(i + 1, j);
+				body *b0 = add_body(i, j);
+				body *b1 = add_body(i, j + 1);
+				body *b2 = add_body(i + 1, j + 1);
+				body *b3 = add_body(i + 1, j);
 
 				// springs
 
-				add_spring(b0, b1);
-				add_spring(b1, b2);
-				add_spring(b2, b3);
-				add_spring(b3, b0);
+				vec2& v0 = b0->position;
+				vec2& v1 = b1->position;
+				vec2& v2 = b2->position;
+				vec2& v3 = b3->position;
 
-				add_spring(b0, b2);
-				add_spring(b1, b3);
+				add_spring(v0, v1);
+				add_spring(v1, v2);
+				add_spring(v2, v3);
+				add_spring(v3, v0);
+
+				add_spring(v0, v2);
+				add_spring(v1, v3);
 
 				// quads
-
-				vec2& v0 = bodies_[b0].position;
-				vec2& v1 = bodies_[b1].position;
-				vec2& v2 = bodies_[b2].position;
-				vec2& v3 = bodies_[b3].position;
 
 				quads_.push_back(quad(v0, v1, v2, v3));
 			}
@@ -457,13 +432,8 @@ piece::collide(piece& other)
 
 	for (auto& q0 : quads_) {
 		for (auto& q1 : other.quads_) {
-			quad_intersection intersection(q0, q1);
-
-			if (intersection()) {
-				q0 -= intersection.push_vector();
-				q1 += intersection.push_vector();
+			if (quad_collision(q0, q1)())
 				collided = true;
-			}
 		}
 	}
 
@@ -478,8 +448,16 @@ piece::draw() const
 {
 	glColor3f(color_.r, color_.g, color_.b);
 
-	for (auto& i : quads_)
-		i.draw();
+	glBegin(GL_QUADS);
+
+	for (auto& i : quads_) {
+		glVertex2f(i.p0.x, i.p0.y);
+		glVertex2f(i.p1.x, i.p1.y);
+		glVertex2f(i.p2.x, i.p2.y);
+		glVertex2f(i.p3.x, i.p3.y);
+	}
+
+	glEnd();
 }
 
 void
