@@ -9,7 +9,9 @@ LIBS = `pkg-config --libs glew sdl gl glu libpng`
 CXXFILES = \
 	main.cpp \
 	world.cpp \
-	panic.cpp
+	panic.cpp \
+	pixmap.cpp \
+	texture.cpp
 
 TARGET = demo
 
