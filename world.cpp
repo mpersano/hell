@@ -8,6 +8,8 @@
 #include <cassert>
 
 #include "vec2.h"
+#include "piece_pattern.h"
+#include "texture.h"
 #include "world.h"
 
 static const float GRAVITY = 1.;
@@ -17,67 +19,6 @@ static const float FRICTION = .6;
 static const int SPAWN_INTERVAL = 30;
 
 static const int BLOCK_SIZE = 20;
-
-struct rgb
-{
-	rgb(float r, float g, float b)
-	: r(r), g(g), b(b)
-	{ }
-
-	float r, g, b;
-};
-
-enum {
-	MAX_PIECE_ROWS = 4,
-	MAX_PIECE_COLS = 4,
-};
-
-static const struct piece_pattern {
-	char pattern[MAX_PIECE_ROWS][MAX_PIECE_COLS + 1];
-	rgb color;
-} piece_patterns[] = {
-	{ { "    ",
-	    " ## ",
-	    " ## ",
-	    "    "  },
-	    rgb(0, 0, 1) },
-
-	{ { " #  ",
-	    " #  ",
-	    " #  ",
-	    " #  "  },
-	    rgb(0, 1, 0) },
-
-	{ { " #  ",
-	    " #  ",
-	    " ## ",
-	    "    "  },
-	    rgb(0, 1, 1) },
-
-	{ { "  # ",
-	    "  # ",
-	    " ## ",
-	    "    "  },
-	    rgb(1, 0, 0) },
-
-	{ { " #  ",
-	    " ## ",
-	    " #  ",
-	    "    "  },
-	    rgb(1, 0, 1) },
-
-	{ { " #  ",
-	    " ## ",
-	    "  # ",
-	    "    "  },
-	    rgb(1, 1, 0) },
-
-	{ { "  # ",
-	    " ## ",
-	    " #  ",
-	    "    "  },
-	    rgb(1, 1, 1) },
-};
 
 struct body
 {
@@ -108,14 +49,17 @@ struct spring
 
 struct quad
 {
-	quad(vec2& p0, vec2& p1, vec2& p2, vec2& p3)
-	: p0(p0)
-	, p1(p1)
-	, p2(p2)
-	, p3(p3)
+	quad(vec2& p0, const vec2& uv0, vec2& p1, const vec2& uv1, vec2& p2, const vec2& uv2, vec2& p3, const vec2& uv3)
+	: p0(p0), uv0(uv0)
+	, p1(p1), uv1(uv1)
+	, p2(p2), uv2(uv2)
+	, p3(p3), uv3(uv3)
 	{ }
 
-	vec2 &p0, &p1, &p2, &p3;
+	vec2 &p0, uv0;
+	vec2 &p1, uv1;
+	vec2 &p2, uv2;
+	vec2 &p3, uv3;
 };
 
 class quad_collision
@@ -138,10 +82,14 @@ private:
 	vec2 push_vector_;
 };
 
+class piece;
+using piece_ptr = std::shared_ptr<piece>;
+
 class piece
 {
 public:
-	piece(const piece_pattern& pattern, float x_origin, float y_origin);
+	piece(const piece& other);
+	piece(const piece_pattern& pattern);
 
 	void draw() const;
 
@@ -149,17 +97,37 @@ public:
 	void check_constraints(int width, int height);
 	void collide(piece& other);
 
+	void move(const vec2& p);
+
 private:
 	void update_bounding_box();
 
 	rgb color_;
+	texture_ptr texture_;
 	std::vector<body> bodies_;
 	std::vector<spring> springs_;
 	std::vector<quad> quads_;
 	vec2 min_pos_, max_pos_;
 };
 
-using piece_ptr = std::shared_ptr<piece>;
+class piece_factory
+{
+public:
+	static piece_factory& get_instance();
+
+	piece_ptr make_piece(int type) const;
+
+	size_t get_num_types() const
+	{ return pieces_.size(); }
+
+private:
+	piece_factory();
+
+	std::vector<piece_ptr> pieces_;
+
+	piece_factory(const piece_factory&) = delete;
+	piece_factory& operator=(const piece_factory&) = delete;
+};
 
 class world_impl
 {
@@ -288,9 +256,18 @@ quad_collision::operator()()
 //  p i e c e
 //
 
-piece::piece(const piece_pattern& pattern, float x_origin, float y_origin)
+piece::piece(const piece_pattern& pattern)
 : color_(pattern.color)
+, texture_(std::make_shared<texture>(pattern.make_pixmap()))
 {
+	texture_->set_wrap_s(GL_CLAMP);
+	texture_->set_wrap_t(GL_CLAMP);
+
+	texture_->set_mag_filter(GL_LINEAR);
+	texture_->set_min_filter(GL_LINEAR);
+
+	texture::set_env_mode(GL_MODULATE);
+
 	std::map<std::pair<int, int>, body *> body_map;
 	std::set<std::pair<vec2 *, vec2 *>> spring_set;
 
@@ -298,7 +275,7 @@ piece::piece(const piece_pattern& pattern, float x_origin, float y_origin)
 		auto it = body_map.find(std::make_pair(i, j));
 
 		if (it == body_map.end()) {
-			bodies_.push_back(vec2(x_origin + j*BLOCK_SIZE, y_origin + i*BLOCK_SIZE));
+			bodies_.push_back(body(vec2(j*BLOCK_SIZE, i*BLOCK_SIZE)));
 			it = body_map.insert(it, std::make_pair(std::make_pair(i, j), &bodies_.back()));
 		}
 
@@ -318,41 +295,75 @@ piece::piece(const piece_pattern& pattern, float x_origin, float y_origin)
 
 	bodies_.reserve((MAX_PIECE_ROWS + 1)*(MAX_PIECE_COLS + 1));
 
+	const float du = static_cast<float>(texture_->get_orig_width())/texture_->get_width()/MAX_PIECE_COLS;
+	const float dv = static_cast<float>(texture_->get_orig_height())/texture_->get_height()/MAX_PIECE_ROWS;
+
 	for (int i = 0; i < MAX_PIECE_ROWS; i++) {
 		for (int j = 0; j < MAX_PIECE_COLS; j++) {
-			if (pattern.pattern[i][j] == '#') {
-				// bodies
+			if (pattern.pattern[i][j] != '#')
+				continue;
 
-				body *b0 = add_body(i, j);
-				body *b1 = add_body(i, j + 1);
-				body *b2 = add_body(i + 1, j + 1);
-				body *b3 = add_body(i + 1, j);
+			// bodies
 
-				// springs
+			body *b0 = add_body(i, j);
+			body *b1 = add_body(i, j + 1);
+			body *b2 = add_body(i + 1, j + 1);
+			body *b3 = add_body(i + 1, j);
 
-				vec2& v0 = b0->position;
-				vec2& v1 = b1->position;
-				vec2& v2 = b2->position;
-				vec2& v3 = b3->position;
+			// springs
 
-				add_spring(v0, v1);
-				add_spring(v1, v2);
-				add_spring(v2, v3);
-				add_spring(v3, v0);
+			vec2& v0 = b0->position;
+			vec2& v1 = b1->position;
+			vec2& v2 = b2->position;
+			vec2& v3 = b3->position;
 
-				add_spring(v0, v2);
-				add_spring(v1, v3);
+			add_spring(v0, v1);
+			add_spring(v1, v2);
+			add_spring(v2, v3);
+			add_spring(v3, v0);
 
-				// quads
+			add_spring(v0, v2);
+			add_spring(v1, v3);
 
-				quads_.push_back(quad(v0, v1, v2, v3));
-			}
+			// quads
+
+			const float u = du*j;
+			const float v = dv*i;
+
+			quads_.push_back(quad(v0, vec2(u, v), v1, vec2(u + du, v), v2, vec2(u + du, v + dv), v3, vec2(u, v + dv)));
 		}
 	}
 
 	update_bounding_box();
 
 	printf("%u bodies, %u springs, %u quads\n", bodies_.size(), springs_.size(), quads_.size());
+}
+
+piece::piece(const piece& other)
+: color_(other.color_)
+, texture_(other.texture_)
+, bodies_(other.bodies_)
+, min_pos_(other.min_pos_)
+, max_pos_(other.max_pos_)
+{
+	std::map<const vec2 *, size_t> pos_body;
+
+	for (size_t i = 0; i < other.bodies_.size(); i++)
+		pos_body[&other.bodies_[i].position] = i;
+
+	for (auto& i : other.springs_) {
+		vec2& p0 = bodies_[pos_body[&i.p0]].position;
+		vec2& p1 = bodies_[pos_body[&i.p1]].position;
+		springs_.push_back(spring(p0, p1));
+	}
+
+	for (auto& i : other.quads_) {
+		vec2& p0 = bodies_[pos_body[&i.p0]].position;
+		vec2& p1 = bodies_[pos_body[&i.p1]].position;
+		vec2& p2 = bodies_[pos_body[&i.p2]].position;
+		vec2& p3 = bodies_[pos_body[&i.p3]].position;
+		quads_.push_back(quad(p0, i.uv0, p1, i.uv1, p2, i.uv2, p3, i.uv3));
+	}
 }
 
 void
@@ -410,6 +421,15 @@ piece::check_constraints(int width, int height)
 }
 
 void
+piece::move(const vec2& p)
+{
+	for (auto& i : bodies_) {
+		i.position += p;
+		i.prev_position = i.position;
+	}
+}
+
+void
 piece::collide(piece& other)
 {
 	// bounding box
@@ -448,21 +468,39 @@ piece::draw() const
 {
 	glColor3f(color_.r, color_.g, color_.b);
 
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_ONE, GL_ONE);
+
+	glEnable(GL_TEXTURE_2D);
+	texture_->bind();
+
 	glBegin(GL_QUADS);
 
 	for (auto& i : quads_) {
+		glTexCoord2f(i.uv0.x, i.uv0.y);
 		glVertex2f(i.p0.x, i.p0.y);
+
+		glTexCoord2f(i.uv1.x, i.uv1.y);
 		glVertex2f(i.p1.x, i.p1.y);
+
+		glTexCoord2f(i.uv2.x, i.uv2.y);
 		glVertex2f(i.p2.x, i.p2.y);
+
+		glTexCoord2f(i.uv3.x, i.uv3.y);
 		glVertex2f(i.p3.x, i.p3.y);
 	}
 
 	glEnd();
+
+	glDisable(GL_TEXTURE_2D);
+	glDisable(GL_BLEND);
 }
 
 void
 piece::update_bounding_box()
 {
+	assert(!bodies_.empty());
+
 	min_pos_ = max_pos_ = bodies_[0].position;
 
 	std::for_each(
@@ -475,6 +513,73 @@ piece::update_bounding_box()
 			min_pos_.y = std::min(min_pos_.y, b.position.y);
 			max_pos_.y = std::max(max_pos_.y, b.position.y);
 		});
+}
+
+//
+//  p i e c e _ f a c t o r y
+//
+
+piece_factory&
+piece_factory::get_instance()
+{
+	static piece_factory instance;
+	return instance;
+}
+
+piece_factory::piece_factory()
+{
+	static const piece_pattern patterns[]
+		{
+		{ { "    ",
+		    " ## ",
+		    " ## ",
+		    "    "  },
+		    rgb(0, 0, 1) },
+	
+		{ { " #  ",
+		    " #  ",
+		    " #  ",
+		    " #  "  },
+		    rgb(0, 1, 0) },
+	
+		{ { " #  ",
+		    " #  ",
+		    " ## ",
+		    "    "  },
+		    rgb(0, 1, 1) },
+	
+		{ { "  # ",
+		    "  # ",
+		    " ## ",
+		    "    "  },
+		    rgb(1, 0, 0) },
+	
+		{ { " #  ",
+		    " ## ",
+		    " #  ",
+		    "    "  },
+		    rgb(1, 0, 1) },
+	
+		{ { " #  ",
+		    " ## ",
+		    "  # ",
+		    "    "  },
+		    rgb(1, 1, 0) },
+	
+		{ { "  # ",
+		    " ## ",
+		    " #  ",
+		    "    "  },
+		    rgb(1, 1, 1) } };
+
+	for (auto& i : patterns)
+		pieces_.push_back(std::make_shared<piece>(i));
+}
+
+piece_ptr
+piece_factory::make_piece(int type) const
+{
+	return std::make_shared<piece>(*pieces_[type]);
 }
 
 //
@@ -545,11 +650,12 @@ world_impl::update()
 	}
 
 	if (!--spawn_tic_) {
-		const float x = rand()%(width_ - BLOCK_SIZE*4);
-		const float y = height_;
-		const int type = rand()%(sizeof piece_patterns/sizeof *piece_patterns);
+		piece_factory& factory = piece_factory::get_instance();
 
-		pieces_.push_back(std::make_shared<piece>(piece_patterns[type], x, y));
+		piece_ptr piece = factory.make_piece(rand()%factory.get_num_types());
+		piece->move(vec2(rand()%(width_ - BLOCK_SIZE*MAX_PIECE_COLS), height_));
+		pieces_.push_back(piece);
+
 		spawn_tic_ = SPAWN_INTERVAL;
 	}
 }

@@ -53,4 +53,6 @@ private:
 	texture& operator=(const texture&) = delete;
 };
 
+using texture_ptr = std::shared_ptr<texture>;
+
 #endif // TEXTURE_H_

@@ -101,7 +101,7 @@ pixmap::~pixmap()
 pixmap_ptr
 pixmap::resize(int new_width, int new_height) const
 {
-	pixmap_ptr new_pm = std::make_shared<pixmap>(new_width, new_height, type_);
+	pixmap_ptr pm = std::make_shared<pixmap>(new_width, new_height, type_);
 
 	size_t pixel_size = get_pixel_size();
 
@@ -109,12 +109,12 @@ pixmap::resize(int new_width, int new_height) const
 	const int copy_width = std::min(width_, new_width);
 
 	for (int i = 0; i < copy_height; i++) {
-		uint8_t *dest = &new_pm->bits_[i*new_width*pixel_size];
+		uint8_t *dest = &pm->bits_[i*new_width*pixel_size];
 		uint8_t *src = &bits_[i*width_*pixel_size];
 		::memcpy(dest, src, copy_width*pixel_size);
 	}
 
-	return new_pm;
+	return pm;
 }
 
 size_t

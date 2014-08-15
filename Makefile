@@ -11,7 +11,8 @@ CXXFILES = \
 	world.cpp \
 	panic.cpp \
 	pixmap.cpp \
-	texture.cpp
+	texture.cpp \
+	piece_pattern.cpp
 
 TARGET = demo
 

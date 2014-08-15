@@ -15,10 +15,10 @@ next_power_of_2(int n)
 	return p;
 }
 
-texture::texture(pixmap_ptr pixmap)
-: orig_width_(pixmap->get_width())
-, orig_height_(pixmap->get_height())
-, pixmap_(pixmap_->resize(next_power_of_2(orig_width_), next_power_of_2(orig_height_)))
+texture::texture(pixmap_ptr orig_pixmap)
+: orig_width_(orig_pixmap->get_width())
+, orig_height_(orig_pixmap->get_height())
+, pixmap_(orig_pixmap->resize(next_power_of_2(orig_width_), next_power_of_2(orig_height_)))
 , texture_id_(0)
 {
 	glGenTextures(1, &texture_id_);
