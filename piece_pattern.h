@@ -1,6 +1,8 @@
 #pragma once
 
-#include "pixmap.h"
+#include <memory>
+
+class texture;
 
 enum
 {
@@ -19,7 +21,7 @@ struct rgb
 
 struct piece_pattern
 {
-	pixmap_ptr make_pixmap() const;
+	std::shared_ptr<texture> make_texture() const;
 
 	char pattern[MAX_PIECE_ROWS][MAX_PIECE_COLS + 1]; // 'x' marks the spot
 	rgb color;

@@ -3,15 +3,13 @@ LD = g++
 
 OBJS = $(CXXFILES:.cpp=.o)
 
-CXXFLAGS = `pkg-config --cflags glew sdl gl glu libpng` -Wall -g -O2 -std=c++0x
+CXXFLAGS = `pkg-config --cflags glew sdl gl glu libpng` -Wall -g -O2 -std=c++0x # -DDUMP_FRAMES
 LIBS = `pkg-config --libs glew sdl gl glu libpng`
 
 CXXFILES = \
 	main.cpp \
 	world.cpp \
 	panic.cpp \
-	pixmap.cpp \
-	texture.cpp \
 	piece_pattern.cpp
 
 TARGET = demo

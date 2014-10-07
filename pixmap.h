@@ -1,46 +1,70 @@
 #pragma once
 
+#include <cstdio>
 #include <cstdint>
-#include <memory>
+#include <cstddef>
+#include <cstring>
 
-class pixmap;
-using pixmap_ptr = std::shared_ptr<pixmap>;
+#include <vector>
+#include <algorithm>
 
-class pixmap {
-public:
-	enum type { GRAY, GRAY_ALPHA, RGB, RGB_ALPHA, INVALID };
+enum pixel_type { Gray, GrayAlpha, RGB, RGBAlpha };
 
-	pixmap(int width, int height, type pixmap_type);
-	~pixmap();
+template <pixel_type PixelType>
+struct pixel_type_to_size;
 
-	static pixmap_ptr load_from_png(const char *path);
+template <>
+struct pixel_type_to_size<Gray>
+{
+	static const size_t size = 1;
+};
 
-	int get_width() const
-	{ return width_; }
+template <>
+struct pixel_type_to_size<GrayAlpha>
+{
+	static const size_t size = 2;
+};
 
-	int get_height() const
-	{ return height_; }
+template <>
+struct pixel_type_to_size<RGB>
+{
+	static const size_t size = 3;
+};
 
-	const uint8_t *get_bits() const
-	{ return bits_; }
+template <>
+struct pixel_type_to_size<RGBAlpha>
+{
+	static const size_t size = 4;
+};
 
-	uint8_t *get_bits()
-	{ return bits_; }
+template <pixel_type PixelType>
+struct pixmap
+{
+	pixmap(size_t width, size_t height)
+	: width(width)
+	, height(height)
+	, data(width*height*pixel_size)
+	{ }
 
-	type get_type() const
-	{ return type_; }
+	pixmap resize(size_t new_width, size_t new_height) const
+	{
+		pixmap new_pixmap(new_width, new_height);
 
-	size_t get_pixel_size() const;
-	static size_t get_pixel_size(type pixmap_type);
+		const size_t copy_height = std::min(height, new_height);
+		const size_t copy_width = std::min(width, new_width);
 
-	pixmap_ptr resize(int new_width, int new_height) const;
+		for (size_t i = 0; i < copy_height; i++) {
+			uint8_t *dest = &new_pixmap.data[i*new_width*pixel_size];
+			const uint8_t *src = &data[i*width*pixel_size];
+			::memcpy(dest, src, copy_width*pixel_size);
+		}
 
-private:
-	int width_;
-	int height_;
-	uint8_t *bits_;
-	type type_;
+		return new_pixmap;
+	}
 
-	pixmap(const pixmap&) = delete;
-	pixmap& operator=(const pixmap&) = delete;
+	static const size_t pixel_size = pixel_type_to_size<PixelType>::size;
+
+	size_t width;
+	size_t height;
+	std::vector<uint8_t> data;
 };

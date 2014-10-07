@@ -103,7 +103,7 @@ private:
 	void update_bounding_box();
 
 	rgb color_;
-	texture_ptr texture_;
+	std::shared_ptr<texture> texture_;
 	std::vector<body> bodies_;
 	std::vector<spring> springs_;
 	std::vector<quad> quads_;
@@ -258,7 +258,7 @@ quad_collision::operator()()
 
 piece::piece(const piece_pattern& pattern)
 : color_(pattern.color)
-, texture_(std::make_shared<texture>(pattern.make_pixmap()))
+, texture_(pattern.make_texture())
 {
 	texture_->set_wrap_s(GL_CLAMP);
 	texture_->set_wrap_t(GL_CLAMP);
@@ -266,7 +266,7 @@ piece::piece(const piece_pattern& pattern)
 	texture_->set_mag_filter(GL_LINEAR);
 	texture_->set_min_filter(GL_LINEAR);
 
-	texture::set_env_mode(GL_MODULATE);
+	texture_->set_env_mode(GL_MODULATE);
 
 	std::map<std::pair<int, int>, body *> body_map;
 	std::set<std::pair<vec2 *, vec2 *>> spring_set;

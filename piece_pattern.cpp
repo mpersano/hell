@@ -1,8 +1,10 @@
 #include <cmath>
 
+#include "texture.h"
+#include "pixmap.h"
 #include "piece_pattern.h"
 
-static const int BLOCK_SIZE = 32;
+static const int BLOCK_SIZE = 27;
 
 static const int CORNER_RADIUS = 8;
 static const int INNER_BORDER = 6;
@@ -119,15 +121,15 @@ draw_block(uint8_t *pixels, int stride, bool up, bool down, bool left, bool righ
 	}
 }
 
-pixmap_ptr
-piece_pattern::make_pixmap() const
+std::shared_ptr<texture>
+piece_pattern::make_texture() const
 {
 	const int width = MAX_PIECE_COLS*BLOCK_SIZE;
 	const int height = MAX_PIECE_ROWS*BLOCK_SIZE;
 
-	pixmap_ptr pm = std::make_shared<pixmap>(width, height, pixmap::GRAY);
+	pixmap<Gray> pm(width, height);
 
-	uint8_t *bits = pm->get_bits();
+	uint8_t *bits = &pm.data[0];
 
 	for (int r = 0; r < MAX_PIECE_ROWS; r++) {
 		for (int c = 0; c < MAX_PIECE_COLS; c++) {
@@ -143,5 +145,7 @@ piece_pattern::make_pixmap() const
 		}
 	}
 
-	return pm;
+	std::shared_ptr<texture> tex(new texture);
+	tex->load(pm);
+	return tex;
 }
