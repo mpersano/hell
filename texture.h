@@ -4,29 +4,31 @@
 
 #include "pixmap.h"
 
+namespace gge {
+
 template <pixel_type PixelType>
 struct pixel_type_to_format;
 
 template <>
-struct pixel_type_to_format<Gray>
+struct pixel_type_to_format<PIXEL_GRAY>
 {
 	static const GLint format = GL_LUMINANCE;
 };
 
 template <>
-struct pixel_type_to_format<GrayAlpha>
+struct pixel_type_to_format<PIXEL_GRAY_ALPHA>
 {
 	static const GLint format = GL_LUMINANCE_ALPHA;
 };
 
 template <>
-struct pixel_type_to_format<RGB>
+struct pixel_type_to_format<PIXEL_RGB>
 {
 	static const GLint format = GL_RGB;
 };
 
 template <>
-struct pixel_type_to_format<RGBAlpha>
+struct pixel_type_to_format<PIXEL_RGB_ALPHA>
 {
 	static const GLint format = GL_RGBA;
 };
@@ -51,17 +53,15 @@ class texture
 {
 public:
 	texture()
-	: orig_width_(0)
-	, width_(0)
-	, orig_height_(0)
-	, height_(0)
-	{ glGenTextures(1, &name_); }
+	: orig_width_(0), width_(0)
+	, orig_height_(0), height_(0)
+	{ glGenTextures(1, &id_); }
 
 	~texture()
-	{ glDeleteTextures(1, &name_); }
+	{ glDeleteTextures(1, &id_); }
 
 	void bind() const
-	{ glBindTexture(GL_TEXTURE_2D, name_); }
+	{ glBindTexture(GL_TEXTURE_2D, id_); }
 
 	void set_wrap_s(GLint wrap) const
 	{ set_parameter(GL_TEXTURE_WRAP_S, wrap); }
@@ -125,5 +125,7 @@ private:
 
 	size_t orig_width_, width_;
 	size_t orig_height_, height_;
-	GLuint name_;
+	GLuint id_;
 };
+
+}

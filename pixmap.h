@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdio>
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
@@ -8,31 +7,33 @@
 #include <vector>
 #include <algorithm>
 
-enum pixel_type { Gray, GrayAlpha, RGB, RGBAlpha };
+namespace gge {
+
+enum pixel_type { PIXEL_GRAY, PIXEL_GRAY_ALPHA, PIXEL_RGB, PIXEL_RGB_ALPHA };
 
 template <pixel_type PixelType>
 struct pixel_type_to_size;
 
 template <>
-struct pixel_type_to_size<Gray>
+struct pixel_type_to_size<PIXEL_GRAY>
 {
 	static const size_t size = 1;
 };
 
 template <>
-struct pixel_type_to_size<GrayAlpha>
+struct pixel_type_to_size<PIXEL_GRAY_ALPHA>
 {
 	static const size_t size = 2;
 };
 
 template <>
-struct pixel_type_to_size<RGB>
+struct pixel_type_to_size<PIXEL_RGB>
 {
 	static const size_t size = 3;
 };
 
 template <>
-struct pixel_type_to_size<RGBAlpha>
+struct pixel_type_to_size<PIXEL_RGB_ALPHA>
 {
 	static const size_t size = 4;
 };
@@ -68,3 +69,5 @@ struct pixmap
 	size_t height;
 	std::vector<uint8_t> data;
 };
+
+} // gge

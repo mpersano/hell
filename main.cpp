@@ -66,8 +66,6 @@ tear_down()
 	tear_down_sdl();
 }
 
-static world w(WINDOW_WIDTH - 2*BORDER, WINDOW_HEIGHT - 2*BORDER);
-
 static void
 handle_events()
 {
@@ -114,6 +112,8 @@ dump_frame(int frame_num)
 void
 game_loop()
 {
+	world w(WINDOW_WIDTH - 2*BORDER, WINDOW_HEIGHT - 2*BORDER);
+
 #ifdef DUMP_FRAMES
 	int cur_frame = 0;
 #endif

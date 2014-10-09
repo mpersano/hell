@@ -4,7 +4,7 @@
 #include "pixmap.h"
 #include "piece_pattern.h"
 
-static const int BLOCK_SIZE = 27;
+static const int BLOCK_SIZE = 32;
 
 static const int CORNER_RADIUS = 8;
 static const int INNER_BORDER = 6;
@@ -121,13 +121,13 @@ draw_block(uint8_t *pixels, int stride, bool up, bool down, bool left, bool righ
 	}
 }
 
-std::shared_ptr<texture>
+std::shared_ptr<gge::texture>
 piece_pattern::make_texture() const
 {
 	const int width = MAX_PIECE_COLS*BLOCK_SIZE;
 	const int height = MAX_PIECE_ROWS*BLOCK_SIZE;
 
-	pixmap<Gray> pm(width, height);
+	gge::pixmap<gge::PIXEL_GRAY> pm(width, height);
 
 	uint8_t *bits = &pm.data[0];
 
@@ -145,7 +145,7 @@ piece_pattern::make_texture() const
 		}
 	}
 
-	std::shared_ptr<texture> tex(new texture);
+	std::shared_ptr<gge::texture> tex(new gge::texture);
 	tex->load(pm);
 	return tex;
 }

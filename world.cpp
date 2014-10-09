@@ -8,6 +8,8 @@
 #include <cassert>
 
 #include "vec2.h"
+#include "vertex_array.h"
+#include "debug_font.h"
 #include "piece_pattern.h"
 #include "texture.h"
 #include "world.h"
@@ -103,7 +105,7 @@ private:
 	void update_bounding_box();
 
 	rgb color_;
-	std::shared_ptr<texture> texture_;
+	std::shared_ptr<gge::texture> texture_;
 	std::vector<body> bodies_;
 	std::vector<spring> springs_;
 	std::vector<quad> quads_;
@@ -145,6 +147,8 @@ private:
 	int spawn_tic_;
 	int width_;
 	int height_;
+	gge::vertex_array<gge::vertex_flat> wall_va_;
+	gge::debug_font font_;
 };
 
 
@@ -474,23 +478,16 @@ piece::draw() const
 	glEnable(GL_TEXTURE_2D);
 	texture_->bind();
 
-	glBegin(GL_QUADS);
+	gge::vertex_array<gge::vertex_texuv> va;
 
 	for (auto& i : quads_) {
-		glTexCoord2f(i.uv0.x, i.uv0.y);
-		glVertex2f(i.p0.x, i.p0.y);
-
-		glTexCoord2f(i.uv1.x, i.uv1.y);
-		glVertex2f(i.p1.x, i.p1.y);
-
-		glTexCoord2f(i.uv2.x, i.uv2.y);
-		glVertex2f(i.p2.x, i.p2.y);
-
-		glTexCoord2f(i.uv3.x, i.uv3.y);
-		glVertex2f(i.p3.x, i.p3.y);
+		va.add_vertex(i.p0.x, i.p0.y, i.uv0.x, i.uv0.y);
+		va.add_vertex(i.p1.x, i.p1.y, i.uv1.x, i.uv1.y);
+		va.add_vertex(i.p2.x, i.p2.y, i.uv2.x, i.uv2.y);
+		va.add_vertex(i.p3.x, i.p3.y, i.uv3.x, i.uv3.y);
 	}
 
-	glEnd();
+	va.draw(GL_QUADS);
 
 	glDisable(GL_TEXTURE_2D);
 	glDisable(GL_BLEND);
@@ -590,25 +587,8 @@ world_impl::world_impl(int width, int height)
 : spawn_tic_(SPAWN_INTERVAL)
 , width_(width)
 , height_(height)
-{ }
-
-void
-world_impl::draw() const
 {
-	draw_walls();
-
-	for (auto& i : pieces_)
-		i->draw();
-}
-
-void
-world_impl::draw_walls() const
-{
-	glColor3f(1, 1, 1);
-
-	glBegin(GL_LINE_LOOP);
-
-	glVertex2f(0, height_);
+	wall_va_.add_vertex(0, height_);
 
 	const float bowl_radius = .5*width_;
 
@@ -621,13 +601,30 @@ world_impl::draw_walls() const
 		float x = bowl_radius*(1 - cosf(a));
 		float y = bowl_radius*(1 - sinf(a));
 
-		glVertex2f(x, y);
+		wall_va_.add_vertex(x, y);
 		a += da;
 	}
 
-	glVertex2f(width_, height_);
+	wall_va_.add_vertex(width_, height_);
+}
 
-	glEnd();
+void
+world_impl::draw() const
+{
+	draw_walls();
+
+	for (auto& i : pieces_)
+		i->draw();
+
+	glColor3f(1, 1, 1);
+	font_.draw_string_f(8, 8, "%d", pieces_.size());
+}
+
+void
+world_impl::draw_walls() const
+{
+	glColor3f(1, 1, 1);
+	wall_va_.draw(GL_LINE_LOOP);
 }
 
 void

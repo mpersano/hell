@@ -2,7 +2,9 @@
 
 #include <memory>
 
+namespace gge {
 class texture;
+}
 
 enum
 {
@@ -21,7 +23,7 @@ struct rgb
 
 struct piece_pattern
 {
-	std::shared_ptr<texture> make_texture() const;
+	std::shared_ptr<gge::texture> make_texture() const;
 
 	char pattern[MAX_PIECE_ROWS][MAX_PIECE_COLS + 1]; // 'x' marks the spot
 	rgb color;

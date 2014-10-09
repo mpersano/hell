@@ -10,7 +10,8 @@ CXXFILES = \
 	main.cpp \
 	world.cpp \
 	panic.cpp \
-	piece_pattern.cpp
+	piece_pattern.cpp \
+	debug_font.cpp
 
 TARGET = demo
 
