@@ -150,7 +150,7 @@ namespace gge {
 
 debug_font::debug_font()
 {
-	pixmap<PIXEL_GRAY> pm(COLS*CHAR_WIDTH, ROWS*CHAR_HEIGHT);
+	pixmap<pixel_type::GRAY> pm(COLS*CHAR_WIDTH, ROWS*CHAR_HEIGHT);
 
 	uint8_t *dest = &pm.data[0];
 

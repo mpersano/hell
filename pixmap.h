@@ -9,34 +9,38 @@
 
 namespace gge {
 
-enum pixel_type { PIXEL_GRAY, PIXEL_GRAY_ALPHA, PIXEL_RGB, PIXEL_RGB_ALPHA };
+enum class pixel_type { GRAY, GRAY_ALPHA, RGB, RGB_ALPHA };
+
+namespace detail {
 
 template <pixel_type PixelType>
 struct pixel_type_to_size;
 
 template <>
-struct pixel_type_to_size<PIXEL_GRAY>
+struct pixel_type_to_size<pixel_type::GRAY>
 {
 	static const size_t size = 1;
 };
 
 template <>
-struct pixel_type_to_size<PIXEL_GRAY_ALPHA>
+struct pixel_type_to_size<pixel_type::GRAY_ALPHA>
 {
 	static const size_t size = 2;
 };
 
 template <>
-struct pixel_type_to_size<PIXEL_RGB>
+struct pixel_type_to_size<pixel_type::RGB>
 {
 	static const size_t size = 3;
 };
 
 template <>
-struct pixel_type_to_size<PIXEL_RGB_ALPHA>
+struct pixel_type_to_size<pixel_type::RGB_ALPHA>
 {
 	static const size_t size = 4;
 };
+
+} // detail
 
 template <pixel_type PixelType>
 struct pixmap
@@ -63,7 +67,7 @@ struct pixmap
 		return new_pixmap;
 	}
 
-	static const size_t pixel_size = pixel_type_to_size<PixelType>::size;
+	static const size_t pixel_size = detail::pixel_type_to_size<PixelType>::size;
 
 	size_t width;
 	size_t height;

@@ -6,34 +6,34 @@
 
 namespace gge {
 
+namespace detail {
+
 template <pixel_type PixelType>
 struct pixel_type_to_format;
 
 template <>
-struct pixel_type_to_format<PIXEL_GRAY>
+struct pixel_type_to_format<pixel_type::GRAY>
 {
 	static const GLint format = GL_LUMINANCE;
 };
 
 template <>
-struct pixel_type_to_format<PIXEL_GRAY_ALPHA>
+struct pixel_type_to_format<pixel_type::GRAY_ALPHA>
 {
 	static const GLint format = GL_LUMINANCE_ALPHA;
 };
 
 template <>
-struct pixel_type_to_format<PIXEL_RGB>
+struct pixel_type_to_format<pixel_type::RGB>
 {
 	static const GLint format = GL_RGB;
 };
 
 template <>
-struct pixel_type_to_format<PIXEL_RGB_ALPHA>
+struct pixel_type_to_format<pixel_type::RGB_ALPHA>
 {
 	static const GLint format = GL_RGBA;
 };
-
-namespace detail {
 
 template <typename T>
 static T
@@ -94,7 +94,7 @@ public:
 
 		glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-		static const GLint format = pixel_type_to_format<PixelType>::format;
+		static const GLint format = detail::pixel_type_to_format<PixelType>::format;
 
 		glTexImage2D(
 			GL_TEXTURE_2D,

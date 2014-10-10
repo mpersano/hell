@@ -127,7 +127,7 @@ piece_pattern::make_texture() const
 	const int width = MAX_PIECE_COLS*BLOCK_SIZE;
 	const int height = MAX_PIECE_ROWS*BLOCK_SIZE;
 
-	gge::pixmap<gge::PIXEL_GRAY> pm(width, height);
+	gge::pixmap<gge::pixel_type::GRAY> pm(width, height);
 
 	uint8_t *bits = &pm.data[0];
 
