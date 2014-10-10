@@ -26,41 +26,48 @@ struct vertex_texuv
 	GLfloat texuv[2];
 };
 
+namespace detail {
+
+// RAII <3 <3 <3
+
 template <typename VertexType>
-struct draw_vertices;
+struct client_state;
 
 template <>
-struct draw_vertices<vertex_flat>
+struct client_state<vertex_flat>
 {
-	static void draw(const vertex_flat *verts, int num_verts, GLenum mode)
+	client_state(const vertex_flat *verts)
 	{
 		glEnableClientState(GL_VERTEX_ARRAY);
+		glVertexPointer(2, GL_FLOAT, sizeof *verts, verts->pos);
+	}
 
-		glVertexPointer(2, GL_FLOAT, sizeof(vertex_flat), verts->pos);
-
-		glDrawArrays(mode, 0, num_verts);
-
+	~client_state()
+	{
 		glDisableClientState(GL_VERTEX_ARRAY);
 	}
 };
 
 template <>
-struct draw_vertices<vertex_texuv>
+struct client_state<vertex_texuv>
 {
-	static void draw(const vertex_texuv *verts, int num_verts, GLenum mode)
+	client_state(const vertex_texuv *verts)
 	{
 		glEnableClientState(GL_VERTEX_ARRAY);
+		glVertexPointer(2, GL_FLOAT, sizeof *verts, verts->pos);
+
 		glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+		glTexCoordPointer(2, GL_FLOAT, sizeof *verts, verts->texuv);
+	}
 
-		glVertexPointer(2, GL_FLOAT, sizeof(vertex_texuv), verts->pos);
-		glTexCoordPointer(2, GL_FLOAT, sizeof(vertex_texuv), verts->texuv);
-
-		glDrawArrays(mode, 0, num_verts);
-
+	~client_state()
+	{
 		glDisableClientState(GL_TEXTURE_COORD_ARRAY);
 		glDisableClientState(GL_VERTEX_ARRAY);
 	}
 };
+
+} // detail
 
 template <class Vertex>
 class vertex_array
@@ -81,7 +88,10 @@ public:
 	{ verts_.push_back(Vertex(x, y, u, v)); }
 
 	void draw(GLenum mode) const
-	{ draw_vertices<Vertex>::draw(&verts_[0], verts_.size(), mode); }
+	{
+		detail::client_state<Vertex> state(&verts_[0]);
+		glDrawArrays(mode, 0, verts_.size());
+	}
 
 	size_t get_num_verts() const
 	{ return verts_.size(); }
@@ -92,5 +102,8 @@ private:
 
 	std::vector<Vertex> verts_;
 };
+
+using vertex_array_flat = vertex_array<vertex_flat>;
+using vertex_array_texuv = vertex_array<vertex_texuv>;
 
 } // gge

@@ -147,7 +147,7 @@ private:
 	int spawn_tic_;
 	int width_;
 	int height_;
-	gge::vertex_array<gge::vertex_flat> wall_va_;
+	gge::vertex_array_flat wall_va_;
 	gge::debug_font font_;
 };
 
@@ -478,7 +478,7 @@ piece::draw() const
 	glEnable(GL_TEXTURE_2D);
 	texture_->bind();
 
-	gge::vertex_array<gge::vertex_texuv> va;
+	gge::vertex_array_texuv va(4*quads_.size());
 
 	for (auto& i : quads_) {
 		va.add_vertex(i.p0.x, i.p0.y, i.uv0.x, i.uv0.y);

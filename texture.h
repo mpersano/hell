@@ -33,7 +33,7 @@ struct pixel_type_to_format<PIXEL_RGB_ALPHA>
 	static const GLint format = GL_RGBA;
 };
 
-namespace {
+namespace detail {
 
 template <typename T>
 static T
@@ -47,7 +47,7 @@ next_power_of_2(T n)
 	return p;
 }
 
-}
+} // detail
 
 class texture
 {
@@ -85,10 +85,10 @@ public:
 	void load(const pixmap<PixelType>& pm)
 	{
 		orig_width_ = pm.width;
-		width_ = next_power_of_2(orig_width_);
+		width_ = detail::next_power_of_2(orig_width_);
 
 		orig_height_ = pm.height;
-		height_ = next_power_of_2(orig_height_);
+		height_ = detail::next_power_of_2(orig_height_);
 
 		bind();
 
