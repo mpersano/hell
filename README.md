@@ -1,1 +1,1 @@
-A STRANGE GAME. THE ONLY WINNING MOVE IS NOT TO PLAY.
+![hell](/hell.gif?raw=true)
