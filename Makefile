@@ -3,17 +3,16 @@ LD = g++
 
 OBJS = $(CXXFILES:.cpp=.o)
 
-CXXFLAGS = `pkg-config --cflags glew sdl gl glu libpng` -Wall -g -O2 -std=c++0x # -DDUMP_FRAMES
-LIBS = `pkg-config --libs glew sdl gl glu libpng`
+CXXFLAGS = `pkg-config --cflags glew sdl gl glu` -Wall -g -O2 -std=c++0x # -DDUMP_FRAMES
+LIBS = `pkg-config --libs glew sdl gl glu`
 
 CXXFILES = \
 	main.cpp \
 	world.cpp \
 	panic.cpp \
-	piece_pattern.cpp \
-	debug_font.cpp
+	piece_pattern.cpp
 
-TARGET = demo
+TARGET = hell
 
 .cpp.o:
 	$(CXX) $(CXXFLAGS) -c $<

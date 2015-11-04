@@ -9,7 +9,6 @@
 
 #include "vec2.h"
 #include "vertex_array.h"
-#include "debug_font.h"
 #include "piece_pattern.h"
 #include "texture.h"
 #include "world.h"
@@ -148,7 +147,6 @@ private:
 	int width_;
 	int height_;
 	gge::vertex_array_flat wall_va_;
-	gge::debug_font font_;
 };
 
 
@@ -478,13 +476,15 @@ piece::draw() const
 	glEnable(GL_TEXTURE_2D);
 	texture_->bind();
 
-	gge::vertex_array_texuv va(4*quads_.size());
+	gge::vertex_array_texuv va;
+
+	va.reserve(4*quads_.size());
 
 	for (auto& i : quads_) {
-		va.add_vertex(i.p0.x, i.p0.y, i.uv0.x, i.uv0.y);
-		va.add_vertex(i.p1.x, i.p1.y, i.uv1.x, i.uv1.y);
-		va.add_vertex(i.p2.x, i.p2.y, i.uv2.x, i.uv2.y);
-		va.add_vertex(i.p3.x, i.p3.y, i.uv3.x, i.uv3.y);
+		va.push_back({ i.p0.x, i.p0.y, i.uv0.x, i.uv0.y });
+		va.push_back({ i.p1.x, i.p1.y, i.uv1.x, i.uv1.y });
+		va.push_back({ i.p2.x, i.p2.y, i.uv2.x, i.uv2.y });
+		va.push_back({ i.p3.x, i.p3.y, i.uv3.x, i.uv3.y });
 	}
 
 	va.draw(GL_QUADS);
@@ -588,12 +588,12 @@ world_impl::world_impl(int width, int height)
 , width_(width)
 , height_(height)
 {
-	wall_va_.add_vertex(0, height_);
+	wall_va_.push_back({ 0, static_cast<float>(height_) });
 
 	const float bowl_radius = .5*width_;
 
 	const int NUM_SEGS = 20;
-	
+
 	float a = 0;
 	const float da = M_PI/(NUM_SEGS - 1);
 
@@ -601,11 +601,11 @@ world_impl::world_impl(int width, int height)
 		float x = bowl_radius*(1 - cosf(a));
 		float y = bowl_radius*(1 - sinf(a));
 
-		wall_va_.add_vertex(x, y);
+		wall_va_.push_back({ x, y });
 		a += da;
 	}
 
-	wall_va_.add_vertex(width_, height_);
+	wall_va_.push_back({ static_cast<float>(width_), static_cast<float>(height_) });
 }
 
 void
@@ -615,9 +615,6 @@ world_impl::draw() const
 
 	for (auto& i : pieces_)
 		i->draw();
-
-	glColor3f(1, 1, 1);
-	font_.draw_string_f(8, 8, "%d", pieces_.size());
 }
 
 void

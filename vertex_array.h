@@ -70,37 +70,20 @@ struct client_state<vertex_texuv>
 } // detail
 
 template <class Vertex>
-class vertex_array
+class vertex_array : public std::vector<Vertex>
 {
 public:
 	vertex_array() = default;
 
-	vertex_array(int capacity)
-	{ verts_.reserve(capacity); }
-
-	void clear()
-	{ verts_.clear(); }
-
-	void add_vertex(float x, float y)
-	{ verts_.push_back(Vertex(x, y)); }
-
-	void add_vertex(float x, float y, float u, float v)
-	{ verts_.push_back(Vertex(x, y, u, v)); }
+	vertex_array(std::initializer_list<Vertex> l)
+	: std::vector<Vertex>(l)
+	{ }
 
 	void draw(GLenum mode) const
 	{
-		detail::client_state<Vertex> state(&verts_[0]);
-		glDrawArrays(mode, 0, verts_.size());
+		detail::client_state<Vertex> state(&this->front());
+		glDrawArrays(mode, 0, this->size());
 	}
-
-	size_t get_num_verts() const
-	{ return verts_.size(); }
-
-private:
-  	vertex_array(const vertex_array&) = delete;
-	vertex_array& operator=(const vertex_array&) = delete;
-
-	std::vector<Vertex> verts_;
 };
 
 using vertex_array_flat = vertex_array<vertex_flat>;
