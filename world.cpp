@@ -50,13 +50,6 @@ struct spring
 
 struct quad
 {
-	quad(vec2& p0, const vec2& uv0, vec2& p1, const vec2& uv1, vec2& p2, const vec2& uv2, vec2& p3, const vec2& uv3)
-	: p0(p0), uv0(uv0)
-	, p1(p1), uv1(uv1)
-	, p2(p2), uv2(uv2)
-	, p3(p3), uv3(uv3)
-	{ }
-
 	vec2 &p0, uv0;
 	vec2 &p1, uv1;
 	vec2 &p2, uv2;
@@ -332,13 +325,13 @@ piece::piece(const piece_pattern& pattern)
 			const float u = du*j;
 			const float v = dv*i;
 
-			quads_.push_back(quad(v0, vec2(u, v), v1, vec2(u + du, v), v2, vec2(u + du, v + dv), v3, vec2(u, v + dv)));
+			quads_.push_back(quad{v0, {u, v}, v1, {u + du, v}, v2, {u + du, v + dv}, v3, {u, v + dv}});
 		}
 	}
 
 	update_bounding_box();
 
-	printf("%u bodies, %u springs, %u quads\n", bodies_.size(), springs_.size(), quads_.size());
+	printf("%lu bodies, %lu springs, %lu quads\n", bodies_.size(), springs_.size(), quads_.size());
 }
 
 piece::piece(const piece& other)
@@ -364,7 +357,7 @@ piece::piece(const piece& other)
 		vec2& p1 = bodies_[pos_body[&i.p1]].position;
 		vec2& p2 = bodies_[pos_body[&i.p2]].position;
 		vec2& p3 = bodies_[pos_body[&i.p3]].position;
-		quads_.push_back(quad(p0, i.uv0, p1, i.uv1, p2, i.uv2, p3, i.uv3));
+		quads_.push_back(quad{p0, i.uv0, p1, i.uv1, p2, i.uv2, p3, i.uv3});
 	}
 }
 
@@ -531,43 +524,43 @@ piece_factory::piece_factory()
 		    " ## ",
 		    " ## ",
 		    "    "  },
-		    rgb(0, 0, 1) },
+		    {0, 0, 1} },
 	
 		{ { " #  ",
 		    " #  ",
 		    " #  ",
 		    " #  "  },
-		    rgb(0, 1, 0) },
+		    {0, 1, 0} },
 	
 		{ { " #  ",
 		    " #  ",
 		    " ## ",
 		    "    "  },
-		    rgb(0, 1, 1) },
+		    {0, 1, 1} },
 	
 		{ { "  # ",
 		    "  # ",
 		    " ## ",
 		    "    "  },
-		    rgb(1, 0, 0) },
+		    {1, 0, 0} },
 	
 		{ { " #  ",
 		    " ## ",
 		    " #  ",
 		    "    "  },
-		    rgb(1, 0, 1) },
+		    {1, 0, 1} },
 	
 		{ { " #  ",
 		    " ## ",
 		    "  # ",
 		    "    "  },
-		    rgb(1, 1, 0) },
+		    {1, 1, 0} },
 	
 		{ { "  # ",
 		    " ## ",
 		    " #  ",
 		    "    "  },
-		    rgb(1, 1, 1) } };
+		    {1, 1, 1} } };
 
 	for (auto& i : patterns)
 		pieces_.push_back(std::make_shared<piece>(i));

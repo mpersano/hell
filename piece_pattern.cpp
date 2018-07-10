@@ -13,21 +13,13 @@ static const int INNER_INNER_BORDER = 2;
 
 struct rect
 {
-	rect(int x, int y, int w, int h)
-	: x(x), y(y), w(w), h(h)
-	{ }
-
 	int x, y, w, h;
 };
 
 struct veci2
 {
-	veci2(int x, int y)
-	: x(x), y(y)
-	{ }
-
 	veci2 operator-(const veci2& v) const
-	{ return veci2(x - v.x, y - v.y); }
+	{ return {x - v.x, y - v.y}; }
 
 	float length() const
 	{ return sqrtf(x*x + y*y); }
@@ -69,13 +61,13 @@ round_rect_color(const veci2& p, const rect& rc, int corner_radius)
 	if (x < x00 || x > x11 || y < y00 || y > y11)
 		return 0;
 	else if (x < x01 && y < y01)
-		return border_color(p, veci2(x01, y01), corner_radius);
+		return border_color(p, {x01, y01}, corner_radius);
 	else if (x < x01 && y > y10)
-		return border_color(p, veci2(x01, y10), corner_radius);
+		return border_color(p, {x01, y10}, corner_radius);
 	else if (x > x10 && y < y01)
-		return border_color(p, veci2(x10, y01), corner_radius);
+		return border_color(p, {x10, y01}, corner_radius);
 	else if (x > x10 && y > y10)
-		return border_color(p, veci2(x10, y10), corner_radius);
+		return border_color(p, {x10, y10}, corner_radius);
 	else
 		return 1;
 
@@ -84,14 +76,14 @@ round_rect_color(const veci2& p, const rect& rc, int corner_radius)
 static void
 draw_block(uint8_t *pixels, int stride, bool up, bool down, bool left, bool right)
 {
-	rect outer(0, 0, BLOCK_SIZE, BLOCK_SIZE);
-	rect inner(INNER_BORDER, INNER_BORDER, BLOCK_SIZE - 2*INNER_BORDER, BLOCK_SIZE - 2*INNER_BORDER);
+	rect outer{0, 0, BLOCK_SIZE, BLOCK_SIZE};
+	rect inner{INNER_BORDER, INNER_BORDER, BLOCK_SIZE - 2*INNER_BORDER, BLOCK_SIZE - 2*INNER_BORDER};
 
 	const float s0 = 1., s1 = .8;
 
 	for (int i = 0; i < BLOCK_SIZE; i++) {
 		for (int j = 0; j < BLOCK_SIZE; j++) {
-			const veci2 p(i, j);
+			const veci2 p{i, j};
 
 			float t0 = round_rect_color(p, outer, CORNER_RADIUS);
 
