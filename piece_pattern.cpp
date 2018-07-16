@@ -4,12 +4,13 @@
 #include "pixmap.h"
 #include "piece_pattern.h"
 
-static const int BLOCK_SIZE = 32;
+namespace {
+constexpr int BLOCK_SIZE = 32;
 
-static const int CORNER_RADIUS = 8;
-static const int INNER_BORDER = 6;
-static const int INNER_CORNER_RADIUS = 4;
-static const int INNER_INNER_BORDER = 2;
+constexpr int CORNER_RADIUS = 8;
+constexpr int INNER_BORDER = 6;
+constexpr int INNER_CORNER_RADIUS = 4;
+constexpr int INNER_INNER_BORDER = 2;
 
 struct rect
 {
@@ -27,7 +28,7 @@ struct veci2
 	int x, y;
 };
 
-static float
+float
 border_color(const veci2& p, const veci2& o, int radius)
 {
 	float l = (p - o).length();
@@ -40,7 +41,7 @@ border_color(const veci2& p, const veci2& o, int radius)
 		return 1. - (l - radius);
 }
 
-static float
+float
 round_rect_color(const veci2& p, const rect& rc, int corner_radius)
 {
 	const int x00 = rc.x;
@@ -73,7 +74,7 @@ round_rect_color(const veci2& p, const rect& rc, int corner_radius)
 
 }
 
-static void
+void
 draw_block(uint8_t *pixels, int stride, bool up, bool down, bool left, bool right)
 {
 	rect outer{0, 0, BLOCK_SIZE, BLOCK_SIZE};
@@ -112,9 +113,10 @@ draw_block(uint8_t *pixels, int stride, bool up, bool down, bool left, bool righ
 		pixels += stride - BLOCK_SIZE;
 	}
 }
+}
 
 std::shared_ptr<gge::texture>
-piece_pattern::make_texture() const
+make_piece_texture(const piece_pattern& p)
 {
 	const int width = MAX_PIECE_COLS*BLOCK_SIZE;
 	const int height = MAX_PIECE_ROWS*BLOCK_SIZE;
@@ -125,19 +127,19 @@ piece_pattern::make_texture() const
 
 	for (int r = 0; r < MAX_PIECE_ROWS; r++) {
 		for (int c = 0; c < MAX_PIECE_COLS; c++) {
-			if (pattern[r][c] != '#')
+			if (p.pattern[r][c] != '#')
 				continue;
-			
-			bool left = c > 0 && pattern[r][c - 1] == '#';
-			bool right = c < MAX_PIECE_COLS - 1 && pattern[r][c + 1] == '#';
-			bool up = r > 0 && pattern[r - 1][c] == '#';
-			bool down = r < MAX_PIECE_ROWS - 1 && pattern[r + 1][c] == '#';
+
+			bool left = c > 0 && p.pattern[r][c - 1] == '#';
+			bool right = c < MAX_PIECE_COLS - 1 && p.pattern[r][c + 1] == '#';
+			bool up = r > 0 && p.pattern[r - 1][c] == '#';
+			bool down = r < MAX_PIECE_ROWS - 1 && p.pattern[r + 1][c] == '#';
 
 			draw_block(&bits[BLOCK_SIZE*(r*width + c)], width, left, right, up, down);
 		}
 	}
 
-	std::shared_ptr<gge::texture> tex(new gge::texture);
+	auto tex = std::make_shared<gge::texture>();
 	tex->load(pm);
 	return tex;
 }

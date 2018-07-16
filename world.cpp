@@ -13,13 +13,15 @@
 #include "texture.h"
 #include "world.h"
 
-static const float GRAVITY = 1.;
-static const float DAMPING = .75;
-static const float FRICTION = .6;
+namespace {
+constexpr auto GRAVITY = 1.f;
+constexpr auto DAMPING = .75f;
+constexpr auto FRICTION = .6f;
 
-static const int SPAWN_INTERVAL = 30;
+constexpr auto SPAWN_INTERVAL = 30;
 
-static const int BLOCK_SIZE = 20;
+constexpr auto BLOCK_SIZE = 20;
+}
 
 struct body
 {
@@ -253,7 +255,7 @@ quad_collision::operator()()
 
 piece::piece(const piece_pattern& pattern)
 : color_(pattern.color)
-, texture_(pattern.make_texture())
+, texture_(make_piece_texture(pattern))
 {
 	texture_->set_wrap_s(GL_CLAMP);
 	texture_->set_wrap_t(GL_CLAMP);
@@ -525,37 +527,37 @@ piece_factory::piece_factory()
 		    " ## ",
 		    "    "  },
 		    {0, 0, 1} },
-	
+
 		{ { " #  ",
 		    " #  ",
 		    " #  ",
 		    " #  "  },
 		    {0, 1, 0} },
-	
+
 		{ { " #  ",
 		    " #  ",
 		    " ## ",
 		    "    "  },
 		    {0, 1, 1} },
-	
+
 		{ { "  # ",
 		    "  # ",
 		    " ## ",
 		    "    "  },
 		    {1, 0, 0} },
-	
+
 		{ { " #  ",
 		    " ## ",
 		    " #  ",
 		    "    "  },
 		    {1, 0, 1} },
-	
+
 		{ { " #  ",
 		    " ## ",
 		    "  # ",
 		    "    "  },
 		    {1, 1, 0} },
-	
+
 		{ { "  # ",
 		    " ## ",
 		    " #  ",

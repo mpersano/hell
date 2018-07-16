@@ -4,9 +4,11 @@
 #include "panic.h"
 #include "world.h"
 
-static const int WINDOW_WIDTH = 240;
-static const int WINDOW_HEIGHT = 320;
-static const int BORDER = 8;
+namespace {
+constexpr int WINDOW_WIDTH = 240;
+constexpr int WINDOW_HEIGHT = 320;
+constexpr int BORDER = 8;
+}
 
 static bool running = false;
 
